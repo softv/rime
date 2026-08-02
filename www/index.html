@@ -1,0 +1,3364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>RIME</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#050810;
+    --void-2:#0b1220;
+    --ice-pale:#eaf7fb;
+    --ice-blue:#8fd3f0;
+    --ice-blue-2:#5fb8e0;
+    --ice-deep:#1c3a4a;
+    --frost:#ffffff;
+    --mist:#5c7a8c;
+    --mist-dim:#33465490;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden; background:var(--void); color:var(--ice-pale);
+    font-family:'Manrope', sans-serif; touch-action:none; user-select:none;
+    -webkit-user-select:none;
+  }
+  #app{ position:fixed; inset:0; overflow:hidden; }
+
+  .screen{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; opacity:0; pointer-events:none;
+    transition:opacity .6s ease;
+  }
+  .screen.active{ opacity:1; pointer-events:auto; }
+
+  /* ---------- logo / type ---------- */
+  .logo{
+    font-family:'Space Grotesk', sans-serif; font-weight:700;
+    font-size:clamp(48px, 14vw, 88px); letter-spacing:.14em;
+    color:var(--ice-pale); margin:0; padding-left:.14em;
+    text-shadow: 0 0 40px rgba(143,211,240,.35), 0 0 4px rgba(255,255,255,.4);
+  }
+  .credit{
+    position:absolute; bottom:28px; left:0; right:0; text-align:center;
+    font-size:11px; letter-spacing:.12em; color:var(--mist); font-weight:300;
+    text-transform:uppercase;
+  }
+  .hint{
+    margin-top:22px; font-size:12px; letter-spacing:.22em; color:var(--mist);
+    text-transform:uppercase; animation:pulse 2.6s ease-in-out infinite;
+    text-align:center;
+  }
+  .subtext{
+    margin-top:10px; font-size:10px; letter-spacing:.14em; color:var(--mist);
+    text-transform:uppercase; opacity:.55; cursor:pointer; text-align:center;
+  }
+  .subtext:hover{ opacity:.9; }
+  @keyframes pulse{ 0%,100%{opacity:.35} 50%{opacity:1} }
+
+  /* ---------- title particles ---------- */
+  #titleParticles{ position:absolute; inset:0; z-index:0; }
+
+  /* ---------- hud ---------- */
+  #hud{
+    position:absolute; top:22px; left:0; right:0; z-index:20;
+    display:flex; justify-content:center; pointer-events:none;
+    opacity:0; transition:opacity .5s ease; padding:0 30px;
+  }
+  #hud.show{ opacity:.75; }
+  .hud-count{
+    font-family:'Space Grotesk', sans-serif; font-weight:500;
+    font-size:13px; letter-spacing:.22em; color:var(--ice-pale);
+  }
+
+  /* ---------- stage (levels live here) ---------- */
+  #stage{ position:absolute; inset:0; background:var(--void); }
+  .lvl{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+
+  /* ===== LEVEL 1 : crack the ice ===== */
+  .l1-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l1-fill{
+    position:absolute; inset:0;
+    background:radial-gradient(circle at 50% 50%, var(--ice-pale), var(--ice-blue) 55%, var(--ice-blue-2) 100%);
+    clip-path:circle(0% at 50% 50%);
+    transition:clip-path .35s cubic-bezier(.2,.8,.2,1);
+  }
+  .l1-ring{
+    position:absolute; width:min(46vw,220px); height:min(46vw,220px); border-radius:50%;
+    border:1px solid var(--mist); opacity:.5;
+  }
+  .l1-crack{ position:absolute; background:rgba(255,255,255,.55); height:1.5px; transform-origin:0 50%; border-radius:2px; opacity:0; transition:opacity .3s ease; }
+
+  /* ===== LEVEL 2 : wipe the frost ===== */
+  .l2-view{
+    position:absolute; inset:0;
+    background:linear-gradient(160deg, var(--ice-pale), var(--ice-blue) 45%, var(--ice-blue-2) 100%);
+  }
+  .l2-canvas{ position:absolute; inset:0; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 3 : hold to freeze ===== */
+  .l3-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l3-canvas{ position:absolute; inset:0; }
+  .l3-flash{
+    position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none;
+    transition:opacity .5s ease;
+  }
+
+  /* ===== LEVEL 4 : align the shards ===== */
+  .l4-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l4-slot{
+    position:absolute; width:64px; height:64px;
+    border:1px dashed var(--mist); opacity:.45; border-radius:6px;
+    transition:opacity .3s ease, box-shadow .3s ease;
+  }
+  .l4-slot.hintglow{ opacity:1; box-shadow:0 0 18px rgba(143,211,240,.9); }
+  .shard{
+    position:absolute; width:64px; height:64px; cursor:grab;
+    clip-path:polygon(50% 0%, 100% 100%, 0% 100%);
+    background:linear-gradient(160deg, var(--ice-pale), var(--ice-blue-2));
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    transition:box-shadow .25s ease;
+    touch-action:none;
+  }
+  .shard.placed{ box-shadow:0 0 22px rgba(143,211,240,.8); pointer-events:none; }
+  .shard.hintglow{ box-shadow:0 0 22px rgba(255,255,255,.95); }
+  .l4-flash{
+    position:absolute; inset:0; background:radial-gradient(circle at 50% 50%, var(--ice-pale), var(--ice-blue) 60%, var(--ice-blue-2));
+    clip-path:circle(0% at 50% 50%); pointer-events:none;
+    transition:clip-path .9s cubic-bezier(.2,.8,.2,1);
+  }
+
+  /* ===== LEVEL 5 / 10 : breathe ===== */
+  .l5-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l5-fill{
+    position:absolute; inset:0;
+    background:radial-gradient(circle at 50% 50%, var(--ice-pale), var(--ice-blue) 55%, var(--ice-blue-2) 100%);
+    clip-path:circle(0% at 50% 50%);
+    transition:clip-path .12s linear;
+  }
+  .l5-ring-wrap{ position:relative; width:150px; height:150px; }
+  .l5-ring-wrap svg{ width:150px; height:150px; transform:rotate(-90deg); }
+  .l5-ring-bg{ fill:none; stroke:var(--mist-dim); stroke-width:2; }
+  .l5-ring-fg{ fill:none; stroke:var(--frost); stroke-width:2; stroke-linecap:round; }
+
+  /* ===== LEVEL 6 : swipe sequence ===== */
+  .l6-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l6-arrow{
+    position:absolute; width:40px; height:40px; opacity:.28;
+    display:flex; align-items:center; justify-content:center;
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  .l6-arrow svg{ width:26px; height:26px; }
+  .l6-arrow.active{ opacity:1; }
+  .l6-arrow.cleared{ opacity:0; transform:scale(1.6); }
+  .l6-flash{
+    position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none;
+    transition:opacity .5s ease;
+  }
+
+  /* ===== LEVEL 7 : timing rings ===== */
+  .l7-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l7-wrap{ position:relative; width:220px; height:220px; }
+  .l7-wrap svg{ width:220px; height:220px; }
+  .l7-track{ fill:none; stroke:var(--mist-dim); stroke-width:2; }
+  .l7-target{ fill:var(--frost); }
+  .l7-target.hint{ fill:var(--ice-blue); }
+  .l7-dot{ fill:var(--ice-blue); }
+  .l7-hits{ position:absolute; bottom:-40px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.2em; color:var(--mist); }
+  .l7-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 8 : rotate dial ===== */
+  .l8-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l8-wrap{ position:relative; width:220px; height:220px; }
+  .l8-wrap svg{ width:220px; height:220px; overflow:visible; }
+  .l8-ring{ fill:none; stroke:var(--mist-dim); stroke-width:2; }
+  .l8-tick{ stroke:var(--frost); stroke-width:3; stroke-linecap:round; opacity:.55; transition:opacity .3s ease, stroke .3s ease; }
+  .l8-tick.hint{ opacity:1; stroke:var(--ice-blue); }
+  .l8-arrow{ stroke:var(--ice-blue); stroke-width:4; stroke-linecap:round; }
+  .l8-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 9 : ordered dots ===== */
+  .l9-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l9-dot{
+    position:absolute; width:46px; height:46px; border-radius:50%;
+    background:var(--ice-pale); display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk',sans-serif; font-size:14px; color:var(--void);
+    transition:transform .2s ease, opacity .3s ease;
+  }
+  .l9-dot span{ opacity:0; transition:opacity .3s ease; }
+  .l9-dot.numbered span{ opacity:1; }
+  .l9-dot.tapped{ transform:scale(0.7); opacity:.25; }
+  .l9-dot.wrong{ animation:shake .3s ease; }
+  @keyframes shake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  .l9-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 11 : twin rings ===== */
+  .l11-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l11-wrap{ position:relative; width:240px; height:240px; }
+  .l11-wrap svg{ width:240px; height:240px; }
+  .l11-track{ fill:none; stroke:var(--mist-dim); stroke-width:2; }
+  .l11-target{ fill:var(--frost); }
+  .l11-target.hint{ fill:var(--ice-blue); }
+  .l11-target.armed{ fill:var(--ice-blue-2); }
+  .l11-dot{ fill:var(--ice-blue); }
+  .l11-hits{ position:absolute; bottom:-40px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.2em; color:var(--mist); }
+  .l11-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 12 : six shards ===== */
+  .l12-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l12-flash{
+    position:absolute; inset:0; background:radial-gradient(circle at 50% 50%, var(--ice-pale), var(--ice-blue) 60%, var(--ice-blue-2));
+    clip-path:circle(0% at 50% 50%); pointer-events:none;
+    transition:clip-path .9s cubic-bezier(.2,.8,.2,1);
+  }
+
+  /* ===== LEVEL 13 : memory sequence ===== */
+  .l13-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l13-progress{ position:absolute; top:90px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.2em; color:var(--mist); }
+  .l13-dot{
+    position:absolute; width:56px; height:56px; border-radius:50%;
+    background:var(--ice-deep); opacity:.5;
+    transition:opacity .15s ease, transform .15s ease, background .15s ease;
+  }
+  .l13-dot.lit{ opacity:1; background:var(--ice-blue); transform:scale(1.12); box-shadow:0 0 24px rgba(143,211,240,.8); }
+  .l13-dot.wrong{ animation:shake .3s ease; }
+  .l13-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 14 : twin dials ===== */
+  .l14-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l14-wrap{ position:relative; }
+  .l14-wrap svg{ overflow:visible; }
+  .l14-ring{ fill:none; stroke:var(--mist-dim); stroke-width:2; }
+  .l14-tick{ stroke:var(--frost); stroke-width:3; stroke-linecap:round; opacity:.55; transition:opacity .3s ease, stroke .3s ease; }
+  .l14-tick.hint{ opacity:1; stroke:var(--ice-blue); }
+  .l14-arrow{ stroke:var(--ice-blue); stroke-width:4; stroke-linecap:round; }
+  .l14-arrow.locked{ stroke:var(--frost); }
+  .l14-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 15 : timed crack ===== */
+  .l15-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l15-fill{
+    position:absolute; inset:0;
+    background:radial-gradient(circle at 50% 50%, var(--ice-pale), var(--ice-blue) 55%, var(--ice-blue-2) 100%);
+    clip-path:circle(0% at 50% 50%);
+    transition:clip-path .3s cubic-bezier(.2,.8,.2,1);
+  }
+  .l15-ring{
+    position:absolute; width:min(46vw,220px); height:min(46vw,220px); border-radius:50%;
+    border:1px solid var(--mist); opacity:.5;
+  }
+  .l15-timerwrap{ position:absolute; top:80px; left:50%; transform:translateX(-50%); width:min(70vw,260px); height:4px; background:var(--mist-dim); border-radius:2px; overflow:hidden; }
+  .l15-timerbar{ height:100%; width:100%; background:var(--ice-blue); transform-origin:left center; }
+  .l15-crack{ position:absolute; background:rgba(255,255,255,.55); height:1.5px; transform-origin:0 50%; border-radius:2px; opacity:0; transition:opacity .3s ease; }
+  .l15-fail{ position:absolute; inset:0; background:#3a0f14; opacity:0; pointer-events:none; transition:opacity .35s ease; }
+
+  /* ===== LEVEL 16 : eight-way swipe ===== */
+  .l16-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l16-arrow{
+    position:absolute; width:36px; height:36px; opacity:.28;
+    display:flex; align-items:center; justify-content:center;
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  .l16-arrow svg{ width:22px; height:22px; }
+  .l16-arrow.active{ opacity:1; }
+  .l16-arrow.cleared{ opacity:0; transform:scale(1.6); }
+  .l16-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 17 : chase the drift ===== */
+  .l17-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l17-target{
+    position:absolute; width:54px; height:54px; border-radius:50%;
+    background:radial-gradient(circle, var(--ice-pale), var(--ice-blue-2));
+    box-shadow:0 0 20px rgba(143,211,240,.5);
+    transform:translate(-50%,-50%);
+  }
+  .l17-ringwrap{ position:absolute; width:150px; height:150px; transform:translate(-50%,-50%); pointer-events:none; }
+  .l17-ringwrap svg{ width:150px; height:150px; transform:rotate(-90deg); }
+  .l17-ring-bg{ fill:none; stroke:var(--mist-dim); stroke-width:2; }
+  .l17-ring-fg{ fill:none; stroke:var(--frost); stroke-width:2; stroke-linecap:round; }
+  .l17-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 18 : trace the rune ===== */
+  .l18-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l18-canvas{ position:absolute; inset:0; }
+  .l18-progress{ position:absolute; bottom:70px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.2em; color:var(--mist); }
+  .l18-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 19 : frost sprites ===== */
+  .l19-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l19-target{
+    position:absolute; width:50px; height:50px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--ice-blue-2); box-shadow:0 0 16px rgba(143,211,240,.6);
+    transform:scale(0); transition:transform .18s cubic-bezier(.2,.8,.2,1);
+  }
+  .l19-target.bad{ background:#7a2b3a; box-shadow:0 0 16px rgba(180,60,80,.5); }
+  .l19-target.show{ transform:scale(1); }
+  .l19-score{ position:absolute; top:90px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.2em; color:var(--mist); }
+  .l19-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+  .l19-fail{ position:absolute; inset:0; background:#3a0f14; opacity:0; pointer-events:none; transition:opacity .35s ease; }
+
+  /* ===== LEVEL 20 : the final rime (boss) ===== */
+  .l20-base{ position:absolute; inset:0; background:var(--void-2); }
+  .l20-label{ position:absolute; top:70px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.24em; color:var(--mist); text-transform:uppercase; }
+  .l20-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .6s ease; }
+
+  /* ===== LEVEL 26 : resist the bait ===== */
+  .l26-decoy{
+    position:absolute; width:44px; height:44px; border-radius:50%;
+    background:#7a2b3a; box-shadow:0 0 16px rgba(180,60,80,.5);
+    transform:scale(0); transition:transform .18s cubic-bezier(.2,.8,.2,1);
+  }
+  .l26-decoy.show{ transform:scale(1); }
+  .l26-fail{ position:absolute; inset:0; background:#3a0f14; opacity:0; pointer-events:none; transition:opacity .35s ease; }
+
+  /* ===== LEVEL 27 : triple rings ===== */
+  .l27-track{ fill:none; stroke:var(--mist-dim); stroke-width:2; }
+  .l27-target{ fill:var(--frost); }
+  .l27-target.hint{ fill:var(--ice-blue); }
+  .l27-target.armed{ fill:var(--ice-blue-2); }
+  .l27-dot{ fill:var(--ice-blue); }
+  .l27-hits{ position:absolute; bottom:-40px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.2em; color:var(--mist); }
+  .l27-flash{ position:absolute; inset:0; background:var(--ice-blue); opacity:0; pointer-events:none; transition:opacity .5s ease; }
+
+  /* ===== LEVEL 30 boss reuses level 20/1/5/8/9 classes ===== */
+
+  /* ---------- hint button ---------- */
+  .hint-btn{
+    position:absolute; right:20px; bottom:26px; z-index:25;
+    width:44px; height:44px; border-radius:50%;
+    background:rgba(255,255,255,.06); border:1px solid var(--mist);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--mist); font-family:'Space Grotesk',sans-serif; font-size:16px;
+    opacity:0; pointer-events:none; transition:opacity .5s ease, transform .2s ease;
+  }
+  .hint-btn.show{ opacity:.8; pointer-events:auto; }
+  .hint-btn:active{ transform:scale(.92); }
+
+  /* ---------- win screen ---------- */
+  #screen-win{ background:radial-gradient(circle at 50% 40%, var(--ice-pale), var(--ice-blue) 55%, var(--ice-blue-2) 100%); }
+  #screen-win .logo{ color:var(--ice-deep); text-shadow:none; }
+  #screen-win .credit{ color:var(--ice-deep); opacity:.7; }
+  .replay{
+    margin-top:26px; width:46px; height:46px; border-radius:50%;
+    border:1.5px solid var(--ice-deep); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; opacity:.8; transition:opacity .2s ease, transform .2s ease;
+  }
+  .replay:hover{ opacity:1; transform:rotate(35deg); }
+  .replay svg{ width:20px; height:20px; }
+
+  #screen-title{ background:var(--void); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="hud"></div>
+
+  <!-- TITLE -->
+  <div class="screen active" id="screen-title">
+    <canvas id="titleParticles"></canvas>
+    <h1 class="logo" style="position:relative;z-index:1;">RIME</h1>
+    <div class="hint" id="titleHint" style="position:relative;z-index:1;">tap to begin</div>
+    <div class="subtext" id="titleRestart" style="position:relative;z-index:1;display:none;">start over</div>
+    <div class="credit">By Sorthan Studios and MadNebula Games</div>
+  </div>
+
+  <!-- GAME -->
+  <div class="screen" id="screen-game">
+    <div id="stage"></div>
+    <div class="hint-btn" id="hintBtn">?</div>
+  </div>
+
+  <!-- WIN -->
+  <div class="screen" id="screen-win">
+    <h1 class="logo">RIME</h1>
+    <div class="replay" id="btnReplay">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1c3a4a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="1 4 1 10 7 10"></polyline>
+        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+      </svg>
+    </div>
+    <div class="credit">By Sorthan Studios and MadNebula Games</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var screens = {
+    title: document.getElementById('screen-title'),
+    game:  document.getElementById('screen-game'),
+    win:   document.getElementById('screen-win')
+  };
+  var stage = document.getElementById('stage');
+  var hud = document.getElementById('hud');
+  var hintBtn = document.getElementById('hintBtn');
+  var titleHint = document.getElementById('titleHint');
+  var titleRestart = document.getElementById('titleRestart');
+
+  var TOTAL_LEVELS = 30;
+  var HARD_LEVELS = [3,4,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];
+  var currentLevel = 0;
+  var cleanupFns = [];
+  var currentHintFn = null;
+  var savedMax = 0;
+
+  /* ---------------- persistence (auto-save) ---------------- */
+  function hasStorage(){
+    return typeof window.storage !== 'undefined' && window.storage;
+  }
+  function loadProgress(){
+    if(!hasStorage()){ return Promise.resolve(0); }
+    return window.storage.get('progress', false).then(function(r){
+      if(r && r.value){
+        try{ var d = JSON.parse(r.value); return d.maxCompleted || 0; }catch(e){ return 0; }
+      }
+      return 0;
+    }).catch(function(){ return 0; });
+  }
+  function saveProgress(n){
+    if(!hasStorage()) return;
+    window.storage.set('progress', JSON.stringify({maxCompleted:n}), false).catch(function(){});
+  }
+  function clearProgress(){
+    savedMax = 0;
+    if(hasStorage()){ window.storage.delete('progress', false).catch(function(){}); }
+    updateTitleUI();
+  }
+  function updateTitleUI(){
+    if(savedMax > 0 && savedMax < TOTAL_LEVELS){
+      titleHint.textContent = 'tap to continue \u00B7 level ' + (savedMax+1);
+      titleRestart.style.display = 'block';
+    } else {
+      titleHint.textContent = 'tap to begin';
+      titleRestart.style.display = 'none';
+    }
+  }
+
+  /* ---------------- screen / level plumbing ---------------- */
+  function showScreen(name){
+    Object.keys(screens).forEach(function(k){
+      screens[k].classList.toggle('active', k === name);
+    });
+  }
+  function runCleanup(){
+    cleanupFns.forEach(function(fn){ try{ fn(); }catch(e){} });
+    cleanupFns = [];
+  }
+  function buildHud(){
+    hud.innerHTML = '<div class="hud-count" id="hudCount">1 / ' + TOTAL_LEVELS + '</div>';
+  }
+  function updateHud(){
+    var el = document.getElementById('hudCount');
+    if(el){
+      var n = Math.max(1, currentLevel);
+      el.textContent = n + ' / ' + TOTAL_LEVELS;
+    }
+  }
+  function updateHintBtn(){
+    var show = HARD_LEVELS.indexOf(currentLevel) !== -1;
+    hintBtn.classList.toggle('show', false);
+    if(show){
+      setTimeout(function(){
+        if(currentLevel === parseInt(hintBtn.dataset.forLevel||0,10)) return;
+        hintBtn.dataset.forLevel = currentLevel;
+        if(HARD_LEVELS.indexOf(currentLevel) !== -1){
+          hintBtn.classList.add('show');
+        }
+      }, 3500);
+    }
+  }
+
+  function completeLevel(){
+    var finished = currentLevel;
+    runCleanup();
+    if(finished > savedMax){ savedMax = finished; saveProgress(savedMax); }
+    setTimeout(function(){
+      if(finished >= TOTAL_LEVELS){
+        showScreen('win');
+      } else {
+        loadLevel(finished + 1);
+      }
+    }, 550);
+  }
+
+  function loadLevel(n){
+    currentLevel = n;
+    currentHintFn = null;
+    updateHud();
+    stage.innerHTML = '';
+    hintBtn.classList.remove('show');
+    hintBtn.dataset.forLevel = -1;
+    updateHintBtn();
+    var fn = LEVELS[n];
+    if(fn) fn(stage);
+  }
+
+  /* ---------------- hint flow ----------------
+     Hints are free: tapping the hint button triggers the level's
+     hint behavior immediately, no ad or wait required. */
+  hintBtn.addEventListener('pointerdown', function(){
+    if(!hintBtn.classList.contains('show')) return;
+    hintBtn.classList.remove('show');
+    if(currentHintFn) currentHintFn();
+  });
+
+  /* ============================================================
+     LEVEL 1 — Tap to crack the ice
+     ============================================================ */
+  function level1(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l1-base"></div>' +
+      '<div class="l1-fill" id="l1fill"></div>' +
+      '<div class="l1-ring"></div>';
+    root.appendChild(wrap);
+
+    var fill = wrap.querySelector('#l1fill');
+    var pct = 0;
+    var done = false;
+
+    function spawnCrack(x, y){
+      var c = document.createElement('div');
+      c.className = 'l1-crack';
+      var cx = window.innerWidth/2, cy = window.innerHeight/2;
+      var dx = x - cx, dy = y - cy;
+      var len = 30 + Math.random()*70;
+      var ang = Math.atan2(dy,dx) + (Math.random()-0.5)*0.6;
+      c.style.left = cx + 'px';
+      c.style.top = cy + 'px';
+      c.style.width = len + 'px';
+      c.style.transform = 'rotate(' + ang + 'rad)';
+      wrap.appendChild(c);
+      requestAnimationFrame(function(){ c.style.opacity = '1'; });
+      setTimeout(function(){ c.style.opacity='0'; setTimeout(function(){ c.remove(); }, 400); }, 900);
+    }
+
+    function onDown(e){
+      if(done) return;
+      var x = (e.touches ? e.touches[0].clientX : e.clientX);
+      var y = (e.touches ? e.touches[0].clientY : e.clientY);
+      pct = Math.min(130, pct + 10 + Math.random()*5);
+      fill.style.clipPath = 'circle(' + pct + '% at 50% 50%)';
+      spawnCrack(x, y);
+      if(pct >= 100 && !done){
+        done = true;
+        fill.style.clipPath = 'circle(150% at 50% 50%)';
+        setTimeout(completeLevel, 500);
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    cleanupFns.push(function(){ wrap.removeEventListener('pointerdown', onDown); });
+  }
+
+  /* ============================================================
+     LEVEL 2 — Wipe the frost
+     ============================================================ */
+  function level2(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l2-view"></div>' +
+      '<canvas class="l2-canvas" id="l2canvas"></canvas>';
+    root.appendChild(wrap);
+
+    var canvas = wrap.querySelector('#l2canvas');
+    var ctx = canvas.getContext('2d');
+    var W, H, ctxCols=28, ctxRows=46, grid, clearedCount=0, totalCells;
+    var done = false;
+
+    function resize(){
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      paintFrost();
+      grid = new Uint8Array(ctxCols*ctxRows);
+      totalCells = ctxCols*ctxRows;
+      clearedCount = 0;
+    }
+    function paintFrost(){
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#eef7fb';
+      ctx.fillRect(0,0,W,H);
+      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.lineWidth = 1;
+      for(var i=0;i<140;i++){
+        var x = Math.random()*W, y = Math.random()*H;
+        var l = 8 + Math.random()*30;
+        var a = Math.random()*Math.PI*2;
+        ctx.beginPath();
+        ctx.moveTo(x,y);
+        ctx.lineTo(x+Math.cos(a)*l, y+Math.sin(a)*l);
+        ctx.stroke();
+      }
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    cleanupFns.push(function(){ window.removeEventListener('resize', resize); });
+
+    var drawing = false, lastX=0, lastY=0;
+    var brush = Math.max(38, Math.min(window.innerWidth, window.innerHeight)*0.07);
+
+    function eraseAt(x,y){
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(x,y,brush,0,Math.PI*2);
+      ctx.fill();
+      var gx = Math.floor(x/W*ctxCols), gy = Math.floor(y/H*ctxRows);
+      for(var i=-1;i<=1;i++){
+        for(var j=-1;j<=1;j++){
+          var idx=(gy+j)*ctxCols+(gx+i);
+          if(gx+i>=0 && gx+i<ctxCols && gy+j>=0 && gy+j<ctxRows && grid[idx]===0){
+            grid[idx]=1; clearedCount++;
+          }
+        }
+      }
+    }
+    function eraseLine(x0,y0,x1,y1){
+      var dist = Math.hypot(x1-x0,y1-y0);
+      var steps = Math.max(1, Math.floor(dist/(brush*0.4)));
+      for(var s=0;s<=steps;s++){
+        eraseAt(x0+(x1-x0)*s/steps, y0+(y1-y0)*s/steps);
+      }
+    }
+    function pos(e){
+      if(e.touches) return [e.touches[0].clientX, e.touches[0].clientY];
+      return [e.clientX, e.clientY];
+    }
+    function onDown(e){
+      if(done) return;
+      drawing = true;
+      var p = pos(e); lastX=p[0]; lastY=p[1];
+      eraseAt(p[0],p[1]);
+      checkDone();
+    }
+    function onMove(e){
+      if(!drawing || done) return;
+      var p = pos(e);
+      eraseLine(lastX,lastY,p[0],p[1]);
+      lastX=p[0]; lastY=p[1];
+      checkDone();
+    }
+    function onUp(){ drawing = false; }
+    function checkDone(){
+      if(done) return;
+      if(clearedCount/totalCells > 0.62){
+        done = true;
+        canvas.style.opacity = '0';
+        setTimeout(completeLevel, 450);
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+    });
+  }
+
+  /* ============================================================
+     LEVEL 3 — Hold to freeze  (HARD, has hint)
+     ============================================================ */
+  function level3(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l3-base"></div>' +
+      '<canvas class="l3-canvas" id="l3canvas"></canvas>' +
+      '<div class="l3-flash" id="l3flash"></div>';
+    root.appendChild(wrap);
+
+    var canvas = wrap.querySelector('#l3canvas');
+    var ctx = canvas.getContext('2d');
+    var flash = wrap.querySelector('#l3flash');
+    var W,H;
+    function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+    cleanupFns.push(function(){ window.removeEventListener('resize', resize); });
+
+    var THRESHOLD = 3000;
+    var heldMs = 0;
+    var holding = false;
+    var lastTick = null;
+    var done = false;
+    var segments = null;
+    var raf = null;
+
+    function buildBranches(ox, oy){
+      var segs = [];
+      var maxLen = Math.hypot(Math.max(ox, W-ox), Math.max(oy, H-oy)) * 1.15;
+      function branch(x,y,ang,len,depth){
+        if(depth<=0 || len<6) return;
+        var x2 = x + Math.cos(ang)*len;
+        var y2 = y + Math.sin(ang)*len;
+        segs.push([x,y,x2,y2,depth]);
+        var children = depth>4 ? 2 : (Math.random()<0.7?2:1);
+        for(var i=0;i<children;i++){
+          var spread = 0.35 + Math.random()*0.55;
+          var na = ang + (i===0?1:-1)*spread*(0.6+Math.random()*0.6);
+          branch(x2,y2,na,len*(0.62+Math.random()*0.12),depth-1);
+        }
+      }
+      var baseAngles = [0, Math.PI/2, Math.PI, -Math.PI/2, Math.PI/4, -Math.PI/4, Math.PI*0.75, -Math.PI*0.75];
+      baseAngles.forEach(function(a){ branch(ox,oy,a, maxLen*0.22, 6); });
+      return segs;
+    }
+    function draw(progress){
+      ctx.clearRect(0,0,W,H);
+      if(!segments) return;
+      var count = Math.floor(segments.length * progress);
+      ctx.lineCap = 'round';
+      for(var i=0;i<count;i++){
+        var s = segments[i];
+        var alpha = 0.35 + (s[4]/6)*0.4;
+        ctx.strokeStyle = 'rgba(180,225,245,' + alpha + ')';
+        ctx.lineWidth = Math.max(0.6, s[4]*0.55);
+        ctx.beginPath();
+        ctx.moveTo(s[0],s[1]);
+        ctx.lineTo(s[2],s[3]);
+        ctx.stroke();
+      }
+    }
+    function finishNow(){
+      if(done) return;
+      done = true;
+      flash.style.opacity = '1';
+      setTimeout(completeLevel, 600);
+    }
+    function tick(ts){
+      if(!lastTick) lastTick = ts;
+      var dt = ts - lastTick;
+      lastTick = ts;
+      if(holding && !done){
+        heldMs = Math.min(THRESHOLD, heldMs + dt);
+        draw(heldMs/THRESHOLD);
+        if(heldMs >= THRESHOLD){ finishNow(); return; }
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    function pos(e){
+      if(e.touches) return [e.touches[0].clientX, e.touches[0].clientY];
+      return [e.clientX, e.clientY];
+    }
+    function onDown(e){
+      if(done) return;
+      if(!segments){
+        var p = pos(e);
+        segments = buildBranches(p[0], p[1]);
+      }
+      holding = true;
+    }
+    function onUp(){ holding = false; }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    currentHintFn = function(){
+      if(!segments){ segments = buildBranches(W/2, H/2); }
+      heldMs = Math.min(THRESHOLD, heldMs + THRESHOLD*0.4);
+      draw(heldMs/THRESHOLD);
+      if(heldMs >= THRESHOLD) finishNow();
+    };
+  }
+
+  /* ============================================================
+     LEVEL 4 — Align the shards  (HARD, has hint)
+     ============================================================ */
+  function level4(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML = '<div class="l4-base"></div><div class="l4-flash" id="l4flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var offsets = [ [0,-72], [72,0], [0,72], [-72,0] ];
+    var rotations = [0, 90, 180, 270];
+    var slots = [];
+
+    offsets.forEach(function(o, i){
+      var slot = document.createElement('div');
+      slot.className = 'l4-slot';
+      slot.style.left = (cx + o[0] - 32) + 'px';
+      slot.style.top = (cy + o[1] - 32) + 'px';
+      slot.style.transform = 'rotate(' + rotations[i] + 'deg)';
+      wrap.appendChild(slot);
+      slots.push({x: cx+o[0], y: cy+o[1], rot: rotations[i], filled:false, el:slot});
+    });
+
+    var placedCount = 0;
+    var shards = [];
+    var margin = 50;
+    var startPositions = [
+      [margin, margin], [W-margin-64, margin],
+      [margin, H-margin-64], [W-margin-64, H-margin-64]
+    ];
+
+    startPositions.forEach(function(pos, i){
+      var s = document.createElement('div');
+      s.className = 'shard';
+      var rot = Math.floor(Math.random()*4)*90 + 25;
+      s.style.left = pos[0] + 'px';
+      s.style.top = pos[1] + 'px';
+      s.style.transform = 'rotate(' + rot + 'deg)';
+      wrap.appendChild(s);
+      shards.push({el:s, targetIndex:i, placed:false});
+    });
+
+    var dragging = null, offX=0, offY=0;
+    function pos(e){
+      if(e.touches) return [e.touches[0].clientX, e.touches[0].clientY];
+      return [e.clientX, e.clientY];
+    }
+    function placeShard(obj){
+      var slot = slots[obj.targetIndex];
+      obj.el.style.left = (slot.x-32) + 'px';
+      obj.el.style.top = (slot.y-32) + 'px';
+      obj.el.style.transform = 'rotate(' + slot.rot + 'deg)';
+      obj.el.classList.add('placed');
+      obj.placed = true;
+      placedCount++;
+      if(placedCount === shards.length){
+        setTimeout(function(){
+          var flash = wrap.querySelector('#l4flash');
+          flash.style.clipPath = 'circle(150% at 50% 50%)';
+          setTimeout(completeLevel, 700);
+        }, 250);
+      }
+    }
+    function onDown(e){
+      var target = e.target.closest && e.target.closest('.shard');
+      if(!target || target.classList.contains('placed')) return;
+      var obj = shards.find(function(s){ return s.el === target; });
+      if(!obj) return;
+      dragging = obj;
+      var p = pos(e);
+      var r = target.getBoundingClientRect();
+      offX = p[0]-r.left; offY = p[1]-r.top;
+      target.style.zIndex = 10;
+      target.style.cursor = 'grabbing';
+    }
+    function onMove(e){
+      if(!dragging) return;
+      var p = pos(e);
+      dragging.el.style.left = (p[0]-offX) + 'px';
+      dragging.el.style.top = (p[1]-offY) + 'px';
+    }
+    function onUp(){
+      if(!dragging) return;
+      var slot = slots[dragging.targetIndex];
+      var r = dragging.el.getBoundingClientRect();
+      var centerX = r.left + r.width/2, centerY = r.top + r.height/2;
+      var d = Math.hypot(centerX-slot.x, centerY-slot.y);
+      if(d < 46){ placeShard(dragging); }
+      if(dragging){ dragging.el.style.cursor = 'grab'; }
+      dragging = null;
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+    });
+
+    currentHintFn = function(){
+      var next = shards.find(function(s){ return !s.placed; });
+      if(!next) return;
+      var slot = slots[next.targetIndex];
+      next.el.classList.add('hintglow');
+      slot.el.classList.add('hintglow');
+      setTimeout(function(){
+        next.el.classList.remove('hintglow');
+        slot.el.classList.remove('hintglow');
+      }, 1600);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 5 — Breathe (short)
+     ============================================================ */
+  function breatheLevel(root, threshold){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l5-base"></div>' +
+      '<div class="l5-fill" id="l5fill"></div>' +
+      '<div class="l5-ring-wrap" style="position:relative;z-index:1;">' +
+        '<svg viewBox="0 0 150 150">' +
+          '<circle class="l5-ring-bg" cx="75" cy="75" r="68"></circle>' +
+          '<circle class="l5-ring-fg" id="l5ring" cx="75" cy="75" r="68" stroke-dasharray="427" stroke-dashoffset="427"></circle>' +
+        '</svg>' +
+      '</div>';
+    root.appendChild(wrap);
+
+    var fill = wrap.querySelector('#l5fill');
+    var ring = wrap.querySelector('#l5ring');
+    var CIRC = 427;
+    var heldMs = 0, holding = false, lastTick = null, done = false, raf = null;
+
+    function tick(ts){
+      if(!lastTick) lastTick = ts;
+      var dt = ts-lastTick; lastTick = ts;
+      if(holding && !done){
+        heldMs = Math.min(threshold, heldMs+dt);
+        var p = heldMs/threshold;
+        ring.setAttribute('stroke-dashoffset', CIRC*(1-p));
+        fill.style.clipPath = 'circle(' + (p*140) + '% at 50% 50%)';
+        if(p >= 1 && !done){
+          done = true;
+          setTimeout(completeLevel, 500);
+          return;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    function onDown(){ if(!done) holding = true; }
+    function onUp(){ holding = false; }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+      if(raf) cancelAnimationFrame(raf);
+    });
+  }
+  function level5(root){ breatheLevel(root, 1800); }
+  function level10(root){ breatheLevel(root, 4200); }
+
+  /* ============================================================
+     LEVEL 6 — Swipe the sequence
+     ============================================================ */
+  function level6(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML = '<div class="l6-base"></div><div class="l6-flash" id="l6flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var DIRS = {
+      up:    {x:cx, y:60,   svg:'M12 4 L19 12 M12 4 L5 12 M12 4 L12 20'},
+      down:  {x:cx, y:H-60, svg:'M12 20 L19 12 M12 20 L5 12 M12 20 L12 4'},
+      left:  {x:60, y:cy,   svg:'M4 12 L12 5 M4 12 L12 19 M4 12 L20 12'},
+      right: {x:W-60, y:cy, svg:'M20 12 L12 5 M20 12 L12 19 M20 12 L4 12'}
+    };
+    var order = ['up','right','down','left'];
+    order = order.sort(function(){ return Math.random()-0.5; });
+    var idx = 0;
+    var els = {};
+
+    Object.keys(DIRS).forEach(function(k){
+      var d = DIRS[k];
+      var el = document.createElement('div');
+      el.className = 'l6-arrow';
+      el.style.left = (d.x-20) + 'px';
+      el.style.top = (d.y-20) + 'px';
+      el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#eaf7fb" stroke-width="2" stroke-linecap="round"><path d="'+d.svg+'"/></svg>';
+      wrap.appendChild(el);
+      els[k] = el;
+    });
+    els[order[idx]].classList.add('active');
+
+    var startX=0, startY=0, tracking=false;
+    function pos(e){
+      if(e.touches) return [e.touches[0].clientX, e.touches[0].clientY];
+      return [e.clientX, e.clientY];
+    }
+    function onDown(e){ var p = pos(e); startX=p[0]; startY=p[1]; tracking=true; }
+    function onUp(e){
+      if(!tracking) return;
+      tracking = false;
+      var p = pos(e.changedTouches ? e.changedTouches[0] : e);
+      var dx = p[0]-startX, dy = p[1]-startY;
+      if(Math.hypot(dx,dy) < 40) return;
+      var dir;
+      if(Math.abs(dx) > Math.abs(dy)) dir = dx>0 ? 'right' : 'left';
+      else dir = dy>0 ? 'down' : 'up';
+      var expected = order[idx];
+      if(dir === expected){
+        els[expected].classList.remove('active');
+        els[expected].classList.add('cleared');
+        idx++;
+        if(idx >= order.length){
+          var flash = wrap.querySelector('#l6flash');
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+        } else {
+          els[order[idx]].classList.add('active');
+        }
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointerup', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointerup', onUp);
+    });
+  }
+
+  /* ============================================================
+     LEVEL 7 — Catch the beat (timing rings)  (HARD, has hint)
+     ============================================================ */
+  function level7(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l7-base"></div>' +
+      '<div class="l7-wrap">' +
+        '<svg viewBox="0 0 220 220">' +
+          '<circle class="l7-track" cx="110" cy="110" r="90"></circle>' +
+          '<circle class="l7-target" id="l7target" cx="110" cy="20" r="6"></circle>' +
+          '<circle class="l7-dot" id="l7dot" cx="110" cy="20" r="5"></circle>' +
+        '</svg>' +
+        '<div class="l7-hits" id="l7hits">0 / 3</div>' +
+      '</div>' +
+      '<div class="l7-flash" id="l7flash"></div>';
+    root.appendChild(wrap);
+
+    var targetEl = wrap.querySelector('#l7target');
+    var dotEl = wrap.querySelector('#l7dot');
+    var hitsEl = wrap.querySelector('#l7hits');
+    var flash = wrap.querySelector('#l7flash');
+
+    var R = 90, CX = 110, CY = 110;
+    var speed = 0.0016;
+    var targetAngle = Math.random()*Math.PI*2;
+    var tolerance = 0.22;
+    var hits = 0, needed = 3, done = false;
+    var raf = null, angle = -Math.PI/2;
+
+    function setTargetPos(){
+      targetEl.setAttribute('cx', CX + R*Math.cos(targetAngle));
+      targetEl.setAttribute('cy', CY + R*Math.sin(targetAngle));
+    }
+    setTargetPos();
+
+    function tick(ts){
+      angle += speed * 16;
+      dotEl.setAttribute('cx', CX + R*Math.cos(angle));
+      dotEl.setAttribute('cy', CY + R*Math.sin(angle));
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    function angleDiff(a,b){
+      var d = Math.abs(a-b) % (Math.PI*2);
+      return Math.min(d, Math.PI*2-d);
+    }
+    function nextTarget(){
+      targetAngle = Math.random()*Math.PI*2;
+      setTargetPos();
+    }
+    function onTap(){
+      if(done) return;
+      if(angleDiff(angle, targetAngle) < tolerance){
+        hits++;
+        hitsEl.textContent = hits + ' / ' + needed;
+        if(hits >= needed){
+          done = true;
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+          return;
+        }
+        nextTarget();
+      }
+    }
+    wrap.addEventListener('pointerdown', onTap);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onTap);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    currentHintFn = function(){
+      tolerance = 0.55;
+      targetEl.classList.add('hint');
+      setTimeout(function(){ tolerance = 0.22; targetEl.classList.remove('hint'); }, 4500);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 8 — Rotate the dial  (HARD, has hint)
+     ============================================================ */
+  function level8(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l8-base"></div>' +
+      '<div class="l8-wrap">' +
+        '<svg viewBox="0 0 220 220">' +
+          '<circle class="l8-ring" cx="110" cy="110" r="95"></circle>' +
+          '<line class="l8-tick" id="l8tick" x1="110" y1="110" x2="110" y2="20"></line>' +
+          '<line class="l8-arrow" id="l8arrow" x1="110" y1="110" x2="110" y2="35"></line>' +
+        '</svg>' +
+      '</div>' +
+      '<div class="l8-flash" id="l8flash"></div>';
+    root.appendChild(wrap);
+
+    var tick = wrap.querySelector('#l8tick');
+    var arrow = wrap.querySelector('#l8arrow');
+    var flash = wrap.querySelector('#l8flash');
+    var CX=110, CY=110;
+    var targetAngle = Math.random()*Math.PI*2;
+    var curAngle = -Math.PI/2;
+    var tolerance = 0.18;
+    var dragging = false, done = false;
+
+    function setLine(el, ang, len){
+      el.setAttribute('x2', CX + len*Math.cos(ang));
+      el.setAttribute('y2', CY + len*Math.sin(ang));
+    }
+    setLine(tick, targetAngle, 90);
+    setLine(arrow, curAngle, 75);
+
+    function angleDiff(a,b){
+      var d = Math.abs(a-b) % (Math.PI*2);
+      return Math.min(d, Math.PI*2-d);
+    }
+    function pos(e){
+      if(e.touches) return [e.touches[0].clientX, e.touches[0].clientY];
+      return [e.clientX, e.clientY];
+    }
+    function svgCenter(){
+      var r = wrap.querySelector('.l8-wrap').getBoundingClientRect();
+      return [r.left+r.width/2, r.top+r.height/2];
+    }
+    function onDown(e){ dragging = true; onMove(e); }
+    function onMove(e){
+      if(!dragging || done) return;
+      var p = pos(e), c = svgCenter();
+      curAngle = Math.atan2(p[1]-c[1], p[0]-c[0]);
+      setLine(arrow, curAngle, 75);
+    }
+    function onUp(){
+      if(!dragging) return;
+      dragging = false;
+      if(angleDiff(curAngle, targetAngle) < tolerance && !done){
+        done = true;
+        flash.style.opacity = '1';
+        setTimeout(completeLevel, 550);
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+    });
+
+    currentHintFn = function(){
+      tolerance = 0.5;
+      tick.classList.add('hint');
+      setTimeout(function(){ tolerance = 0.18; tick.classList.remove('hint'); }, 4500);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 9 — Tap in order  (HARD, has hint)
+     ============================================================ */
+  function level9(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML = '<div class="l9-base"></div><div class="l9-flash" id="l9flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var offsets = [ [-70,-70], [70,-70], [70,70], [-70,70] ];
+    var order = [0,1,2,3].sort(function(){ return Math.random()-0.5; });
+    var brightness = [0.85, 0.68, 0.5, 0.34];
+    var dots = [];
+    var nextIdx = 0, done = false;
+
+    offsets.forEach(function(o, i){
+      var el = document.createElement('div');
+      el.className = 'l9-dot';
+      el.style.left = (cx+o[0]-23) + 'px';
+      el.style.top = (cy+o[1]-23) + 'px';
+      var rank = order.indexOf(i);
+      el.style.opacity = brightness[rank];
+      el.innerHTML = '<span>' + (rank+1) + '</span>';
+      wrap.appendChild(el);
+      dots.push({el:el, index:i, rank:rank});
+    });
+
+    function onDown(e){
+      if(done) return;
+      var target = e.target.closest && e.target.closest('.l9-dot');
+      if(!target) return;
+      var obj = dots.find(function(d){ return d.el === target; });
+      if(!obj) return;
+      if(obj.rank === nextIdx){
+        obj.el.classList.add('tapped');
+        nextIdx++;
+        if(nextIdx >= dots.length){
+          done = true;
+          var flash = wrap.querySelector('#l9flash');
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+        }
+      } else {
+        obj.el.classList.add('wrong');
+        setTimeout(function(){ obj.el.classList.remove('wrong'); }, 300);
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    cleanupFns.push(function(){ wrap.removeEventListener('pointerdown', onDown); });
+
+    currentHintFn = function(){
+      dots.forEach(function(d){ d.el.classList.add('numbered'); });
+      setTimeout(function(){
+        dots.forEach(function(d){ if(!d.el.classList.contains('tapped')) d.el.classList.remove('numbered'); });
+      }, 2600);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 11 — Twin rings  (HARD, has hint)
+     Two dots orbit at different speeds; tap only when BOTH are
+     inside their target zones at once.
+     ============================================================ */
+  function level11(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l11-base"></div>' +
+      '<div class="l11-wrap">' +
+        '<svg viewBox="0 0 240 240">' +
+          '<circle class="l11-track" cx="120" cy="120" r="105"></circle>' +
+          '<circle class="l11-track" cx="120" cy="120" r="65"></circle>' +
+          '<circle class="l11-target" id="l11targetA" cx="120" cy="15" r="7"></circle>' +
+          '<circle class="l11-target" id="l11targetB" cx="120" cy="55" r="6"></circle>' +
+          '<circle class="l11-dot" id="l11dotA" cx="120" cy="15" r="5"></circle>' +
+          '<circle class="l11-dot" id="l11dotB" cx="120" cy="55" r="4"></circle>' +
+        '</svg>' +
+        '<div class="l11-hits" id="l11hits">0 / 4</div>' +
+      '</div>' +
+      '<div class="l11-flash" id="l11flash"></div>';
+    root.appendChild(wrap);
+
+    var tA = wrap.querySelector('#l11targetA'), tB = wrap.querySelector('#l11targetB');
+    var dA = wrap.querySelector('#l11dotA'), dB = wrap.querySelector('#l11dotB');
+    var hitsEl = wrap.querySelector('#l11hits');
+    var flash = wrap.querySelector('#l11flash');
+    var CX=120, CY=120, RA=105, RB=65;
+    var speedA = 0.0021, speedB = -0.0032;
+    var angA = -Math.PI/2, angB = -Math.PI/2;
+    var targetA = Math.random()*Math.PI*2, targetB = Math.random()*Math.PI*2;
+    var tolerance = 0.2;
+    var hits = 0, needed = 4, done = false, raf = null;
+
+    function place(el,ang,r){ el.setAttribute('cx', CX+r*Math.cos(ang)); el.setAttribute('cy', CY+r*Math.sin(ang)); }
+    function angleDiff(a,b){ var d=Math.abs(a-b)%(Math.PI*2); return Math.min(d,Math.PI*2-d); }
+    place(tA,targetA,RA); place(tB,targetB,RB);
+
+    function tick(){
+      angA += speedA*16; angB += speedB*16;
+      place(dA,angA,RA); place(dB,angB,RB);
+      var okA = angleDiff(angA,targetA) < tolerance;
+      var okB = angleDiff(angB,targetB) < tolerance;
+      tA.classList.toggle('armed', okA);
+      tB.classList.toggle('armed', okB);
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    function nextTargets(){
+      targetA = Math.random()*Math.PI*2; targetB = Math.random()*Math.PI*2;
+      place(tA,targetA,RA); place(tB,targetB,RB);
+    }
+    function onTap(){
+      if(done) return;
+      var okA = angleDiff(angA,targetA) < tolerance;
+      var okB = angleDiff(angB,targetB) < tolerance;
+      if(okA && okB){
+        hits++;
+        hitsEl.textContent = hits + ' / ' + needed;
+        if(hits >= needed){
+          done = true;
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+          return;
+        }
+        nextTargets();
+      }
+    }
+    wrap.addEventListener('pointerdown', onTap);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onTap);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    currentHintFn = function(){
+      tolerance = 0.5;
+      tA.classList.add('hint'); tB.classList.add('hint');
+      setTimeout(function(){ tolerance = 0.2; tA.classList.remove('hint'); tB.classList.remove('hint'); }, 4500);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 12 — Six shards  (HARD, has hint)
+     ============================================================ */
+  function level12(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML = '<div class="l12-base"></div><div class="l12-flash" id="l12flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var N = 6, radius = 82;
+    var slots = [];
+    for(var i=0;i<N;i++){
+      var ang = -Math.PI/2 + i*(Math.PI*2/N);
+      var ox = Math.round(Math.cos(ang)*radius), oy = Math.round(Math.sin(ang)*radius);
+      var slot = document.createElement('div');
+      slot.className = 'l4-slot';
+      slot.style.left = (cx+ox-32)+'px';
+      slot.style.top = (cy+oy-32)+'px';
+      slot.style.transform = 'rotate(' + Math.round(ang*180/Math.PI + 90) + 'deg)';
+      wrap.appendChild(slot);
+      slots.push({x:cx+ox, y:cy+oy, rot: Math.round(ang*180/Math.PI+90), el:slot});
+    }
+
+    var placedCount = 0;
+    var shards = [];
+    var edgeSpots = [
+      [40,40],[W-104,40],[40,H-104],[W-104,H-104],
+      [W/2-32,40],[W/2-32,H-104]
+    ];
+    edgeSpots.forEach(function(pos,i){
+      var s = document.createElement('div');
+      s.className = 'shard';
+      var rot = Math.floor(Math.random()*4)*90 + 15;
+      s.style.left = pos[0]+'px'; s.style.top = pos[1]+'px';
+      s.style.transform = 'rotate('+rot+'deg)';
+      wrap.appendChild(s);
+      shards.push({el:s, targetIndex:i, placed:false});
+    });
+
+    var dragging=null, offX=0, offY=0;
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    function placeShard(obj){
+      var slot = slots[obj.targetIndex];
+      obj.el.style.left = (slot.x-32)+'px'; obj.el.style.top = (slot.y-32)+'px';
+      obj.el.style.transform = 'rotate('+slot.rot+'deg)';
+      obj.el.classList.add('placed'); obj.placed = true; placedCount++;
+      if(placedCount === shards.length){
+        setTimeout(function(){
+          var flash = wrap.querySelector('#l12flash');
+          flash.style.clipPath = 'circle(150% at 50% 50%)';
+          setTimeout(completeLevel, 700);
+        }, 250);
+      }
+    }
+    function onDown(e){
+      var target = e.target.closest && e.target.closest('.shard');
+      if(!target || target.classList.contains('placed')) return;
+      var obj = shards.find(function(s){ return s.el===target; });
+      if(!obj) return;
+      dragging = obj;
+      var p = pos(e), r = target.getBoundingClientRect();
+      offX = p[0]-r.left; offY = p[1]-r.top;
+      target.style.zIndex = 10; target.style.cursor='grabbing';
+    }
+    function onMove(e){
+      if(!dragging) return;
+      var p = pos(e);
+      dragging.el.style.left = (p[0]-offX)+'px';
+      dragging.el.style.top = (p[1]-offY)+'px';
+    }
+    function onUp(){
+      if(!dragging) return;
+      var slot = slots[dragging.targetIndex];
+      var r = dragging.el.getBoundingClientRect();
+      var ccx=r.left+r.width/2, ccy=r.top+r.height/2;
+      var d = Math.hypot(ccx-slot.x, ccy-slot.y);
+      if(d < 42){ placeShard(dragging); }
+      if(dragging) dragging.el.style.cursor='grab';
+      dragging = null;
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+    });
+
+    currentHintFn = function(){
+      var next = shards.find(function(s){ return !s.placed; });
+      if(!next) return;
+      var slot = slots[next.targetIndex];
+      next.el.classList.add('hintglow'); slot.el.classList.add('hintglow');
+      setTimeout(function(){ next.el.classList.remove('hintglow'); slot.el.classList.remove('hintglow'); }, 1600);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 13 — Memory sequence (Simon)  (HARD, has hint)
+     ============================================================ */
+  function level13(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l13-base"></div>' +
+      '<div class="l13-progress" id="l13progress">watch</div>' +
+      '<div class="l13-flash" id="l13flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var offsets = [ [-75,-75], [75,-75], [75,75], [-75,75] ];
+    var dots = offsets.map(function(o,i){
+      var el = document.createElement('div');
+      el.className = 'l13-dot';
+      el.style.left = (cx+o[0]-28)+'px';
+      el.style.top = (cy+o[1]-28)+'px';
+      wrap.appendChild(el);
+      return {el:el, index:i};
+    });
+
+    var ROUNDS = 5;
+    var sequence = [];
+    for(var i=0;i<ROUNDS;i++){ sequence.push(Math.floor(Math.random()*4)); }
+    var playerIdx = 0, round = 1, done = false, accepting = false;
+    var progressEl = wrap.querySelector('#l13progress');
+
+    function lightUp(i, cb){
+      dots[i].el.classList.add('lit');
+      setTimeout(function(){
+        dots[i].el.classList.remove('lit');
+        setTimeout(cb, 180);
+      }, 420);
+    }
+    function playSequence(upTo){
+      accepting = false;
+      progressEl.textContent = 'watch';
+      var i = 0;
+      function step(){
+        if(i >= upTo){ accepting = true; playerIdx = 0; progressEl.textContent = 'repeat it'; return; }
+        lightUp(sequence[i], function(){ i++; step(); });
+      }
+      setTimeout(step, 500);
+    }
+    playSequence(round);
+
+    function onDown(e){
+      if(done || !accepting) return;
+      var target = e.target.closest && e.target.closest('.l13-dot');
+      if(!target) return;
+      var obj = dots.find(function(d){ return d.el===target; });
+      if(!obj) return;
+      if(obj.index === sequence[playerIdx]){
+        obj.el.classList.add('lit');
+        setTimeout(function(){ obj.el.classList.remove('lit'); }, 200);
+        playerIdx++;
+        if(playerIdx >= round){
+          if(round >= ROUNDS){
+            done = true;
+            var flash = wrap.querySelector('#l13flash');
+            flash.style.opacity = '1';
+            setTimeout(completeLevel, 550);
+          } else {
+            round++;
+            setTimeout(function(){ playSequence(round); }, 500);
+          }
+        }
+      } else {
+        obj.el.classList.add('wrong');
+        setTimeout(function(){ obj.el.classList.remove('wrong'); }, 300);
+        accepting = false;
+        setTimeout(function(){ playSequence(round); }, 700);
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    cleanupFns.push(function(){ wrap.removeEventListener('pointerdown', onDown); });
+
+    currentHintFn = function(){
+      if(!accepting) return;
+      var idx = sequence[playerIdx];
+      dots[idx].el.classList.add('lit');
+      setTimeout(function(){ dots[idx].el.classList.remove('lit'); }, 500);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 14 — Twin dials  (HARD, has hint)
+     Align an inner and outer dial to their marks; each locks in
+     place once correct, and both must be locked to finish.
+     ============================================================ */
+  function level14(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    var size = Math.min(window.innerWidth, window.innerHeight) * 0.72;
+    wrap.innerHTML =
+      '<div class="l14-base"></div>' +
+      '<div class="l14-wrap" style="width:'+size+'px;height:'+size+'px;">' +
+        '<svg viewBox="0 0 220 220" style="width:'+size+'px;height:'+size+'px;">' +
+          '<circle class="l14-ring" cx="110" cy="110" r="95"></circle>' +
+          '<circle class="l14-ring" cx="110" cy="110" r="55"></circle>' +
+          '<line class="l14-tick" id="l14tickOuter" x1="110" y1="110" x2="110" y2="15"></line>' +
+          '<line class="l14-tick" id="l14tickInner" x1="110" y1="110" x2="110" y2="55"></line>' +
+          '<line class="l14-arrow" id="l14arrowOuter" x1="110" y1="110" x2="110" y2="35"></line>' +
+          '<line class="l14-arrow" id="l14arrowInner" x1="110" y1="110" x2="110" y2="65"></line>' +
+        '</svg>' +
+      '</div>' +
+      '<div class="l14-flash" id="l14flash"></div>';
+    root.appendChild(wrap);
+
+    var scale = size/220;
+    var tickO = wrap.querySelector('#l14tickOuter'), tickI = wrap.querySelector('#l14tickInner');
+    var arrowO = wrap.querySelector('#l14arrowOuter'), arrowI = wrap.querySelector('#l14arrowInner');
+    var flash = wrap.querySelector('#l14flash');
+    var CX=110, CY=110;
+    var targetO = Math.random()*Math.PI*2, targetI = Math.random()*Math.PI*2;
+    var curO = -Math.PI/2, curI = -Math.PI/2;
+    var tolerance = 0.16;
+    var lockedO = false, lockedI = false, dragMode = null;
+
+    function setLine(el, ang, len){ el.setAttribute('x2', CX+len*Math.cos(ang)); el.setAttribute('y2', CY+len*Math.sin(ang)); }
+    function angleDiff(a,b){ var d=Math.abs(a-b)%(Math.PI*2); return Math.min(d,Math.PI*2-d); }
+    setLine(tickO,targetO,95); setLine(tickI,targetI,55);
+    setLine(arrowO,curO,75); setLine(arrowI,curI,40);
+
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    function svgCenter(){ var r = wrap.querySelector('.l14-wrap').getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; }
+    function checkFinish(){
+      if(lockedO && lockedI){
+        flash.style.opacity = '1';
+        setTimeout(completeLevel, 550);
+      }
+    }
+    function onDown(e){
+      var p = pos(e), c = svgCenter();
+      var d = Math.hypot(p[0]-c[0], p[1]-c[1]) / scale;
+      dragMode = d < 75 ? 'inner' : 'outer';
+      onMove(e);
+    }
+    function onMove(e){
+      if(!dragMode) return;
+      var p = pos(e), c = svgCenter();
+      var ang = Math.atan2(p[1]-c[1], p[0]-c[0]);
+      if(dragMode === 'outer' && !lockedO){
+        curO = ang; setLine(arrowO,curO,75);
+      } else if(dragMode === 'inner' && !lockedI){
+        curI = ang; setLine(arrowI,curI,40);
+      }
+    }
+    function onUp(){
+      if(dragMode === 'outer' && !lockedO && angleDiff(curO,targetO) < tolerance){
+        lockedO = true; arrowO.classList.add('locked'); checkFinish();
+      }
+      if(dragMode === 'inner' && !lockedI && angleDiff(curI,targetI) < tolerance){
+        lockedI = true; arrowI.classList.add('locked'); checkFinish();
+      }
+      dragMode = null;
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+    });
+
+    currentHintFn = function(){
+      tolerance = 0.45;
+      if(!lockedO) tickO.classList.add('hint');
+      if(!lockedI) tickI.classList.add('hint');
+      setTimeout(function(){ tolerance = 0.16; tickO.classList.remove('hint'); tickI.classList.remove('hint'); }, 4500);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 15 — Timed crack  (HARD, has hint)
+     Same as level 1, but the ice regrows unless you crack it
+     fully before the timer bar runs out.
+     ============================================================ */
+  function level15(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l15-base"></div>' +
+      '<div class="l15-fill" id="l15fill"></div>' +
+      '<div class="l15-ring"></div>' +
+      '<div class="l15-timerwrap"><div class="l15-timerbar" id="l15bar"></div></div>' +
+      '<div class="l15-fail" id="l15fail"></div>';
+    root.appendChild(wrap);
+
+    var fill = wrap.querySelector('#l15fill');
+    var bar = wrap.querySelector('#l15bar');
+    var fail = wrap.querySelector('#l15fail');
+    var LIMIT = 4200;
+    var pct = 0, done = false, extraTime = 0;
+    var startTs = null, raf = null;
+
+    function spawnCrack(x, y){
+      var c = document.createElement('div');
+      c.className = 'l15-crack';
+      var cx = window.innerWidth/2, cy = window.innerHeight/2;
+      var dx = x-cx, dy = y-cy;
+      var len = 30+Math.random()*70;
+      var ang = Math.atan2(dy,dx) + (Math.random()-0.5)*0.6;
+      c.style.left = cx+'px'; c.style.top = cy+'px'; c.style.width = len+'px';
+      c.style.transform = 'rotate('+ang+'rad)';
+      wrap.appendChild(c);
+      requestAnimationFrame(function(){ c.style.opacity='1'; });
+      setTimeout(function(){ c.style.opacity='0'; setTimeout(function(){ c.remove(); }, 400); }, 900);
+    }
+    function resetRun(){
+      pct = 0;
+      fill.style.transition = 'clip-path .25s ease';
+      fill.style.clipPath = 'circle(0% at 50% 50%)';
+      startTs = null;
+    }
+    function tick(ts){
+      if(done) return;
+      if(!startTs) startTs = ts;
+      var elapsed = ts - startTs;
+      var remain = Math.max(0, 1 - elapsed/(LIMIT+extraTime));
+      bar.style.transform = 'scaleX(' + remain + ')';
+      if(remain <= 0){
+        fail.style.opacity = '.9';
+        setTimeout(function(){ fail.style.opacity='0'; }, 260);
+        resetRun();
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    function onDown(e){
+      if(done) return;
+      var x = (e.touches ? e.touches[0].clientX : e.clientX);
+      var y = (e.touches ? e.touches[0].clientY : e.clientY);
+      pct = Math.min(130, pct + 11 + Math.random()*5);
+      fill.style.clipPath = 'circle(' + pct + '% at 50% 50%)';
+      spawnCrack(x,y);
+      if(pct >= 100 && !done){
+        done = true;
+        fill.style.clipPath = 'circle(150% at 50% 50%)';
+        if(raf) cancelAnimationFrame(raf);
+        setTimeout(completeLevel, 500);
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    currentHintFn = function(){
+      extraTime += 3000;
+    };
+  }
+
+  /* ============================================================
+     LEVEL 16 — Eight-way swipe  (HARD, has hint)
+     ============================================================ */
+  function level16(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML = '<div class="l16-base"></div><div class="l16-flash" id="l16flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var R = Math.min(W,H)*0.34;
+    var DIR_NAMES = ['up','upright','right','downright','down','downleft','left','upleft'];
+    var arrowSvgs = {
+      up:'M12 4 L18 11 M12 4 L6 11 M12 4 L12 20',
+      down:'M12 20 L18 13 M12 20 L6 13 M12 20 L12 4',
+      left:'M4 12 L11 6 M4 12 L11 18 M4 12 L20 12',
+      right:'M20 12 L13 6 M20 12 L13 18 M20 12 L4 12',
+      upright:'M18 6 L18 12 M18 6 L12 6 M18 6 L6 18',
+      downright:'M18 18 L18 12 M18 18 L12 18 M18 18 L6 6',
+      downleft:'M6 18 L6 12 M6 18 L12 18 M6 18 L18 6',
+      upleft:'M6 6 L6 12 M6 6 L12 6 M6 6 L18 18'
+    };
+    var els = {};
+    DIR_NAMES.forEach(function(name, i){
+      var ang = -Math.PI/2 + i*(Math.PI*2/8);
+      var x = cx + R*Math.cos(ang), y = cy + R*Math.sin(ang);
+      var el = document.createElement('div');
+      el.className = 'l16-arrow';
+      el.style.left = (x-18)+'px'; el.style.top = (y-18)+'px';
+      el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#eaf7fb" stroke-width="2" stroke-linecap="round"><path d="'+arrowSvgs[name]+'"/></svg>';
+      wrap.appendChild(el);
+      els[name] = el;
+    });
+
+    var order = DIR_NAMES.slice().sort(function(){ return Math.random()-0.5; });
+    var idx = 0;
+    els[order[0]].classList.add('active');
+
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    var startX=0,startY=0,tracking=false;
+    function onDown(e){ var p=pos(e); startX=p[0]; startY=p[1]; tracking=true; }
+    function onUp(e){
+      if(!tracking) return;
+      tracking=false;
+      var p = pos(e.changedTouches ? e.changedTouches[0] : e);
+      var dx=p[0]-startX, dy=p[1]-startY;
+      if(Math.hypot(dx,dy) < 36) return;
+      var ang = Math.atan2(dy,dx);
+      var deg = ang*180/Math.PI;
+      if(deg < 0) deg += 360;
+      var sector = Math.round(deg/45) % 8;
+      var mapping = ['right','downright','down','downleft','left','upleft','up','upright'];
+      var dir = mapping[sector];
+      var expected = order[idx];
+      if(dir === expected){
+        els[expected].classList.remove('active');
+        els[expected].classList.add('cleared');
+        idx++;
+        if(idx >= order.length){
+          var flash = wrap.querySelector('#l16flash');
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+        } else {
+          els[order[idx]].classList.add('active');
+        }
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointerup', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointerup', onUp);
+    });
+
+    currentHintFn = function(){
+      var el = els[order[idx]];
+      el.style.transform = 'scale(1.5)';
+      el.style.opacity = '1';
+      setTimeout(function(){ el.style.transform = ''; }, 1400);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 17 — Chase the drift  (HARD, has hint)
+     A target drifts around the screen; hold your finger on it
+     continuously (it evades slightly) until the ring fills.
+     ============================================================ */
+  function level17(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l17-base"></div>' +
+      '<div class="l17-ringwrap" id="l17ringwrap"><svg viewBox="0 0 150 150">' +
+        '<circle class="l17-ring-bg" cx="75" cy="75" r="68"></circle>' +
+        '<circle class="l17-ring-fg" id="l17ring" cx="75" cy="75" r="68" stroke-dasharray="427" stroke-dashoffset="427"></circle>' +
+      '</svg></div>' +
+      '<div class="l17-target" id="l17target"></div>' +
+      '<div class="l17-flash" id="l17flash"></div>';
+    root.appendChild(wrap);
+
+    var target = wrap.querySelector('#l17target');
+    var ringwrap = wrap.querySelector('#l17ringwrap');
+    var ring = wrap.querySelector('#l17ring');
+    var flash = wrap.querySelector('#l17flash');
+    var W = window.innerWidth, H = window.innerHeight;
+    var tx = W/2, ty = H/2;
+    var vx = (Math.random()-0.5)*1.6, vy = (Math.random()-0.5)*1.6;
+    var CIRC = 427;
+    var THRESHOLD = 3600;
+    var heldMs = 0, holding = false, lastTick = null, done = false, raf = null;
+    var pointerX = null, pointerY = null;
+
+    function place(){
+      target.style.left = tx+'px'; target.style.top = ty+'px';
+      ringwrap.style.left = tx+'px'; ringwrap.style.top = ty+'px';
+    }
+    place();
+
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    function onDown(e){ if(done) return; var p=pos(e); pointerX=p[0]; pointerY=p[1]; checkHold(); }
+    function onMove(e){ if(!holding && pointerX===null) return; var p=pos(e); pointerX=p[0]; pointerY=p[1]; checkHold(); }
+    function onUp(){ pointerX=null; pointerY=null; holding=false; }
+    function checkHold(){
+      var d = Math.hypot(pointerX-tx, pointerY-ty);
+      holding = d < 40;
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    function tick(ts){
+      if(!lastTick) lastTick = ts;
+      var dt = ts-lastTick; lastTick = ts;
+      if(!done){
+        tx += vx; ty += vy;
+        if(tx < 60 || tx > W-60) vx *= -1;
+        if(ty < 60 || ty > H-60) vy *= -1;
+        tx = Math.max(60, Math.min(W-60, tx));
+        ty = Math.max(60, Math.min(H-60, ty));
+        place();
+        if(pointerX !== null) checkHold();
+        if(holding){
+          heldMs = Math.min(THRESHOLD, heldMs+dt);
+          ring.setAttribute('stroke-dashoffset', CIRC*(1-heldMs/THRESHOLD));
+          if(heldMs >= THRESHOLD){
+            done = true;
+            flash.style.opacity = '1';
+            setTimeout(completeLevel, 550);
+            return;
+          }
+        } else {
+          heldMs = Math.max(0, heldMs - dt*0.5);
+          ring.setAttribute('stroke-dashoffset', CIRC*(1-heldMs/THRESHOLD));
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    currentHintFn = function(){
+      var origVx = vx, origVy = vy;
+      vx *= 0.25; vy *= 0.25;
+      setTimeout(function(){ vx = origVx; vy = origVy; }, 3500);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 18 — Trace the rune  (HARD, has hint)
+     Drag along a glowing star-shaped path without straying too
+     far from the line, covering enough of it to finish.
+     ============================================================ */
+  function level18(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l18-base"></div>' +
+      '<canvas class="l18-canvas" id="l18canvas"></canvas>' +
+      '<div class="l18-progress" id="l18progress">trace the rune</div>' +
+      '<div class="l18-flash" id="l18flash"></div>';
+    root.appendChild(wrap);
+
+    var canvas = wrap.querySelector('#l18canvas');
+    var ctx = canvas.getContext('2d');
+    var progressEl = wrap.querySelector('#l18progress');
+    var flash = wrap.querySelector('#l18flash');
+    var W,H,cx,cy,R;
+    var pathPts = [];
+    var covered = null;
+    var done = false;
+
+    function buildStar(){
+      pathPts = [];
+      var points = 5;
+      for(var i=0;i<=points*2;i++){
+        var ang = -Math.PI/2 + i*(Math.PI/points);
+        var r = (i%2===0) ? R : R*0.42;
+        pathPts.push([cx+r*Math.cos(ang), cy+r*Math.sin(ang)]);
+      }
+    }
+    function drawBase(){
+      ctx.clearRect(0,0,W,H);
+      ctx.strokeStyle = 'rgba(143,211,240,.35)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      pathPts.forEach(function(p,i){ i===0?ctx.moveTo(p[0],p[1]):ctx.lineTo(p[0],p[1]); });
+      ctx.stroke();
+    }
+    function drawSegHit(idx){
+      var a = pathPts[idx], b = pathPts[idx+1];
+      ctx.strokeStyle = 'rgba(255,255,255,.95)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+      ctx.stroke();
+    }
+    function resize(){
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      cx = W/2; cy = H/2;
+      R = Math.min(W,H)*0.28;
+      buildStar();
+      covered = new Uint8Array(pathPts.length-1);
+      drawBase();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    cleanupFns.push(function(){ window.removeEventListener('resize', resize); });
+
+    function distToSeg(px,py,a,b){
+      var dx=b[0]-a[0], dy=b[1]-a[1];
+      var len2 = dx*dx+dy*dy;
+      var t = len2 ? Math.max(0,Math.min(1, ((px-a[0])*dx+(py-a[1])*dy)/len2)) : 0;
+      var ex = a[0]+t*dx, ey = a[1]+t*dy;
+      return Math.hypot(px-ex, py-ey);
+    }
+    function markNear(px,py){
+      var tol = 34;
+      for(var i=0;i<pathPts.length-1;i++){
+        if(covered[i]) continue;
+        if(distToSeg(px,py,pathPts[i],pathPts[i+1]) < tol){
+          covered[i] = 1;
+          drawSegHit(i);
+        }
+      }
+      var count = 0;
+      for(var j=0;j<covered.length;j++){ if(covered[j]) count++; }
+      var pct = Math.round(count/covered.length*100);
+      progressEl.textContent = pct + '%';
+      if(count === covered.length && !done){
+        done = true;
+        flash.style.opacity = '1';
+        setTimeout(completeLevel, 550);
+      }
+    }
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    var drawing = false;
+    function onDown(e){ if(done) return; drawing = true; var p = pos(e); markNear(p[0],p[1]); }
+    function onMove(e){ if(!drawing || done) return; var p = pos(e); markNear(p[0],p[1]); }
+    function onUp(){ drawing = false; }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+    });
+
+    currentHintFn = function(){
+      for(var i=0;i<covered.length;i++){
+        if(!covered[i]){
+          ctx.strokeStyle = 'rgba(143,211,240,.9)';
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.moveTo(pathPts[i][0],pathPts[i][1]);
+          ctx.lineTo(pathPts[i+1][0],pathPts[i+1][1]);
+          ctx.stroke();
+          setTimeout(function(){ if(!done) drawBase(); for(var k=0;k<covered.length;k++){ if(covered[k]) drawSegHit(k); } }, 900);
+          break;
+        }
+      }
+    };
+  }
+
+  /* ============================================================
+     LEVEL 19 — Frost sprites  (HARD, has hint)
+     Blue sprites flash briefly at random spots — tap them before
+     they fade. Red sprites must be avoided.
+     ============================================================ */
+  function level19(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l19-base"></div>' +
+      '<div class="l19-score" id="l19score">0 / 8</div>' +
+      '<div class="l19-flash" id="l19flash"></div>' +
+      '<div class="l19-fail" id="l19fail"></div>';
+    root.appendChild(wrap);
+
+    var scoreEl = wrap.querySelector('#l19score');
+    var flash = wrap.querySelector('#l19flash');
+    var fail = wrap.querySelector('#l19fail');
+    var W = window.innerWidth, H = window.innerHeight;
+    var needed = 8, score = 0, misses = 0, maxMisses = 3, done = false;
+    var spawnTimer = null;
+    var slowMode = false;
+
+    function spawn(){
+      if(done) return;
+      var isBad = Math.random() < 0.32;
+      var el = document.createElement('div');
+      el.className = 'l19-target' + (isBad ? ' bad' : '');
+      var margin = 70;
+      var x = margin + Math.random()*(W-margin*2);
+      var y = margin + 140 + Math.random()*(H-margin*2-180);
+      el.style.left = (x-25)+'px'; el.style.top = (y-25)+'px';
+      wrap.appendChild(el);
+      requestAnimationFrame(function(){ el.classList.add('show'); });
+
+      var life = slowMode ? 1400 : 850;
+      var timeoutId = setTimeout(function(){ remove(); }, life);
+      var removed = false;
+      function remove(){
+        if(removed) return;
+        removed = true;
+        el.classList.remove('show');
+        setTimeout(function(){ el.remove(); }, 200);
+      }
+      function onTap(ev){
+        ev.stopPropagation();
+        if(done || removed) return;
+        clearTimeout(timeoutId);
+        if(isBad){
+          misses++;
+          fail.style.opacity = '.85';
+          setTimeout(function(){ fail.style.opacity='0'; }, 220);
+          if(misses >= maxMisses){ misses = 0; score = Math.max(0, score-2); }
+        } else {
+          score++;
+          scoreEl.textContent = Math.min(score,needed) + ' / ' + needed;
+          if(score >= needed && !done){
+            done = true;
+            flash.style.opacity = '1';
+            clearInterval(spawnTimer);
+            setTimeout(completeLevel, 550);
+          }
+        }
+        remove();
+      }
+      el.addEventListener('pointerdown', onTap);
+    }
+    spawnTimer = setInterval(spawn, 620);
+    spawn();
+
+    cleanupFns.push(function(){ clearInterval(spawnTimer); });
+
+    currentHintFn = function(){
+      slowMode = true;
+      setTimeout(function(){ slowMode = false; }, 5000);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 20 — The final rime (boss)  (HARD, has hint)
+     Combines three quick challenges back to back: crack, hold,
+     and a directional swipe — clear all three to finish the game.
+     ============================================================ */
+  function level20(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l20-base"></div>' +
+      '<div class="l20-label" id="l20label">stage 1 / 3 — crack it</div>' +
+      '<div id="l20stage"></div>' +
+      '<div class="l20-flash" id="l20flash"></div>';
+    root.appendChild(wrap);
+
+    var label = wrap.querySelector('#l20label');
+    var stageWrap = wrap.querySelector('#l20stage');
+    var flash = wrap.querySelector('#l20flash');
+    var phase = 1;
+    var localCleanup = [];
+
+    function clearStage(){
+      localCleanup.forEach(function(fn){ try{ fn(); }catch(e){} });
+      localCleanup = [];
+      stageWrap.innerHTML = '';
+    }
+
+    function finishAll(){
+      flash.style.opacity = '1';
+      setTimeout(completeLevel, 650);
+    }
+
+    /* --- phase 1: crack --- */
+    function startPhase1(){
+      label.textContent = 'stage 1 / 3 \u2014 crack it';
+      stageWrap.innerHTML =
+        '<div class="l1-fill" id="b1fill" style="clip-path:circle(0% at 50% 50%);"></div>' +
+        '<div class="l1-ring"></div>';
+      var fill = stageWrap.querySelector('#b1fill');
+      var pct = 0, done = false;
+      function onDown(e){
+        if(done) return;
+        pct = Math.min(130, pct + 14 + Math.random()*6);
+        fill.style.clipPath = 'circle(' + pct + '% at 50% 50%)';
+        if(pct >= 100){
+          done = true;
+          fill.style.clipPath = 'circle(150% at 50% 50%)';
+          setTimeout(function(){ clearStage(); phase=2; startPhase2(); }, 450);
+        }
+      }
+      wrap.addEventListener('pointerdown', onDown);
+      localCleanup.push(function(){ wrap.removeEventListener('pointerdown', onDown); });
+      currentHintFn = function(){ pct = Math.min(130, pct+40); fill.style.clipPath = 'circle('+pct+'% at 50% 50%)'; if(pct>=100){ onDown({}); } };
+    }
+
+    /* --- phase 2: hold --- */
+    function startPhase2(){
+      label.textContent = 'stage 2 / 3 \u2014 hold steady';
+      stageWrap.innerHTML =
+        '<div class="l5-ring-wrap" style="position:relative;">' +
+          '<svg viewBox="0 0 150 150">' +
+            '<circle class="l5-ring-bg" cx="75" cy="75" r="68"></circle>' +
+            '<circle class="l5-ring-fg" id="b2ring" cx="75" cy="75" r="68" stroke-dasharray="427" stroke-dashoffset="427"></circle>' +
+          '</svg>' +
+        '</div>';
+      var ring = stageWrap.querySelector('#b2ring');
+      var CIRC = 427, THRESHOLD = 2200;
+      var heldMs = 0, holding = false, lastTick = null, done = false, raf = null;
+      function tick(ts){
+        if(!lastTick) lastTick = ts;
+        var dt = ts-lastTick; lastTick = ts;
+        if(holding && !done){
+          heldMs = Math.min(THRESHOLD, heldMs+dt);
+          ring.setAttribute('stroke-dashoffset', CIRC*(1-heldMs/THRESHOLD));
+          if(heldMs >= THRESHOLD){
+            done = true;
+            setTimeout(function(){ clearStage(); phase=3; startPhase3(); }, 400);
+            return;
+          }
+        }
+        raf = requestAnimationFrame(tick);
+      }
+      raf = requestAnimationFrame(tick);
+      function onDown(){ if(!done) holding = true; }
+      function onUp(){ holding = false; }
+      wrap.addEventListener('pointerdown', onDown);
+      wrap.addEventListener('pointerup', onUp);
+      wrap.addEventListener('pointerleave', onUp);
+      localCleanup.push(function(){
+        wrap.removeEventListener('pointerdown', onDown);
+        wrap.removeEventListener('pointerup', onUp);
+        wrap.removeEventListener('pointerleave', onUp);
+        if(raf) cancelAnimationFrame(raf);
+      });
+      currentHintFn = function(){ heldMs = Math.min(THRESHOLD, heldMs + THRESHOLD*0.5); };
+    }
+
+    /* --- phase 3: swipe sequence --- */
+    function startPhase3(){
+      label.textContent = 'stage 3 / 3 \u2014 swipe it away';
+      var W = window.innerWidth, H = window.innerHeight;
+      var cx = W/2, cy = H/2;
+      var DIRS = {
+        up:{x:cx,y:cy-90,svg:'M12 4 L19 12 M12 4 L5 12 M12 4 L12 20'},
+        down:{x:cx,y:cy+90,svg:'M12 20 L19 12 M12 20 L5 12 M12 20 L12 4'},
+        left:{x:cx-90,y:cy,svg:'M4 12 L12 5 M4 12 L12 19 M4 12 L20 12'},
+        right:{x:cx+90,y:cy,svg:'M20 12 L12 5 M20 12 L12 19 M20 12 L4 12'}
+      };
+      var order = ['up','right','down','left','up','left'];
+      var idx = 0, els = {};
+      Object.keys(DIRS).forEach(function(k){
+        var d = DIRS[k];
+        var el = document.createElement('div');
+        el.className = 'l6-arrow';
+        el.style.position='absolute';
+        el.style.left = (d.x-20)+'px'; el.style.top = (d.y-20)+'px';
+        el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#eaf7fb" stroke-width="2" stroke-linecap="round"><path d="'+d.svg+'"/></svg>';
+        stageWrap.appendChild(el);
+        els[k] = el;
+      });
+      els[order[0]].classList.add('active');
+
+      function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+      var startX=0,startY=0,tracking=false;
+      function onDown(e){ var p=pos(e); startX=p[0]; startY=p[1]; tracking=true; }
+      function onUp(e){
+        if(!tracking) return;
+        tracking=false;
+        var p = pos(e.changedTouches ? e.changedTouches[0] : e);
+        var dx=p[0]-startX, dy=p[1]-startY;
+        if(Math.hypot(dx,dy) < 36) return;
+        var dir;
+        if(Math.abs(dx) > Math.abs(dy)) dir = dx>0?'right':'left';
+        else dir = dy>0?'down':'up';
+        var expected = order[idx];
+        if(dir === expected){
+          els[expected].classList.remove('active');
+          els[expected].classList.add('cleared');
+          idx++;
+          if(idx >= order.length){
+            finishAll();
+          } else if(els[order[idx]]){
+            els[order[idx]].classList.add('active');
+          }
+        }
+      }
+      wrap.addEventListener('pointerdown', onDown);
+      wrap.addEventListener('pointerup', onUp);
+      localCleanup.push(function(){
+        wrap.removeEventListener('pointerdown', onDown);
+        wrap.removeEventListener('pointerup', onUp);
+      });
+      currentHintFn = function(){
+        var el = els[order[idx]];
+        if(el){ el.style.transform='scale(1.6)'; setTimeout(function(){ el.style.transform=''; },1200); }
+      };
+    }
+
+    startPhase1();
+    cleanupFns.push(function(){ clearStage(); });
+  }
+
+  /* ============================================================
+     LEVEL 21 — Order dots, hexagon  (HARD, has hint)
+     ============================================================ */
+  function level21(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML = '<div class="l9-base"></div><div class="l9-flash" id="l21flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var N = 6, radius = 100;
+    var order = [];
+    for(var i=0;i<N;i++) order.push(i);
+    order = order.sort(function(){ return Math.random()-0.5; });
+    var dots = [];
+    for(var i2=0;i2<N;i2++){
+      var ang = -Math.PI/2 + i2*(Math.PI*2/N);
+      var ox = Math.cos(ang)*radius, oy = Math.sin(ang)*radius;
+      var el = document.createElement('div');
+      el.className = 'l9-dot';
+      el.style.left = (cx+ox-23)+'px'; el.style.top = (cy+oy-23)+'px';
+      var rank = order.indexOf(i2);
+      el.style.opacity = 0.85 - rank*0.11;
+      el.innerHTML = '<span>' + (rank+1) + '</span>';
+      wrap.appendChild(el);
+      dots.push({el:el, index:i2, rank:rank});
+    }
+    var nextIdx = 0, done = false;
+    function onDown(e){
+      if(done) return;
+      var target = e.target.closest && e.target.closest('.l9-dot');
+      if(!target) return;
+      var obj = dots.find(function(d){ return d.el===target; });
+      if(!obj) return;
+      if(obj.rank === nextIdx){
+        obj.el.classList.add('tapped');
+        nextIdx++;
+        if(nextIdx >= dots.length){
+          done = true;
+          var flash = wrap.querySelector('#l21flash');
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+        }
+      } else {
+        obj.el.classList.add('wrong');
+        setTimeout(function(){ obj.el.classList.remove('wrong'); }, 300);
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    cleanupFns.push(function(){ wrap.removeEventListener('pointerdown', onDown); });
+
+    currentHintFn = function(){
+      dots.forEach(function(d){ d.el.classList.add('numbered'); });
+      setTimeout(function(){
+        dots.forEach(function(d){ if(!d.el.classList.contains('tapped')) d.el.classList.remove('numbered'); });
+      }, 2600);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 22 — Track the drifting mark  (HARD, has hint)
+     A mark on the ring slowly rotates; drag the arrow to stay on
+     top of it continuously until the hold bar fills.
+     ============================================================ */
+  function level22(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l8-base"></div>' +
+      '<div class="l8-wrap">' +
+        '<svg viewBox="0 0 220 220">' +
+          '<circle class="l8-ring" cx="110" cy="110" r="95"></circle>' +
+          '<line class="l8-tick" id="l22tick" x1="110" y1="110" x2="110" y2="20"></line>' +
+          '<line class="l8-arrow" id="l22arrow" x1="110" y1="110" x2="110" y2="35"></line>' +
+        '</svg>' +
+      '</div>' +
+      '<div class="l8-flash" id="l22flash"></div>';
+    root.appendChild(wrap);
+
+    var tick = wrap.querySelector('#l22tick');
+    var arrow = wrap.querySelector('#l22arrow');
+    var flash = wrap.querySelector('#l22flash');
+    var CX=110, CY=110;
+    var markAngle = -Math.PI/2, markSpeed = 0.0013;
+    var curAngle = -Math.PI/2;
+    var tolerance = 0.24;
+    var dragging = false, done = false;
+    var heldMs = 0, THRESHOLD = 2600, raf = null, lastTick = null;
+
+    function setLine(el, ang, len){ el.setAttribute('x2', CX+len*Math.cos(ang)); el.setAttribute('y2', CY+len*Math.sin(ang)); }
+    function angleDiff(a,b){ var d=Math.abs(a-b)%(Math.PI*2); return Math.min(d,Math.PI*2-d); }
+    setLine(arrow, curAngle, 75);
+
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    function svgCenter(){ var r = wrap.querySelector('.l8-wrap').getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; }
+    function onDown(e){ dragging = true; onMove(e); }
+    function onMove(e){
+      if(!dragging || done) return;
+      var p = pos(e), c = svgCenter();
+      curAngle = Math.atan2(p[1]-c[1], p[0]-c[0]);
+      setLine(arrow, curAngle, 75);
+    }
+    function onUp(){ dragging = false; }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    function loop(ts){
+      if(!lastTick) lastTick = ts;
+      var dt = ts-lastTick; lastTick = ts;
+      if(!done){
+        markAngle += markSpeed*16;
+        setLine(tick, markAngle, 90);
+        var onTarget = dragging && angleDiff(curAngle, markAngle) < tolerance;
+        if(onTarget){
+          heldMs = Math.min(THRESHOLD, heldMs+dt);
+        } else {
+          heldMs = Math.max(0, heldMs - dt*0.7);
+        }
+        if(heldMs >= THRESHOLD){
+          done = true;
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+          return;
+        }
+      }
+      raf = requestAnimationFrame(loop);
+    }
+    raf = requestAnimationFrame(loop);
+
+    currentHintFn = function(){
+      tolerance = 0.55; markSpeed = 0.0006;
+      setTimeout(function(){ tolerance = 0.24; markSpeed = 0.0013; }, 4000);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 23 — Deeper memory sequence  (HARD, has hint)
+     ============================================================ */
+  function level23(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l13-base"></div>' +
+      '<div class="l13-progress" id="l23progress">watch</div>' +
+      '<div class="l13-flash" id="l23flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var N = 6, radius = 95;
+    var dots = [];
+    for(var i=0;i<N;i++){
+      var ang = -Math.PI/2 + i*(Math.PI*2/N);
+      var el = document.createElement('div');
+      el.className = 'l13-dot';
+      el.style.left = (cx+Math.cos(ang)*radius-28)+'px';
+      el.style.top = (cy+Math.sin(ang)*radius-28)+'px';
+      wrap.appendChild(el);
+      dots.push({el:el, index:i});
+    }
+
+    var ROUNDS = 6;
+    var sequence = [];
+    for(var r=0;r<ROUNDS;r++){ sequence.push(Math.floor(Math.random()*N)); }
+    var playerIdx = 0, round = 1, done = false, accepting = false;
+    var progressEl = wrap.querySelector('#l23progress');
+
+    function lightUp(i, cb){
+      dots[i].el.classList.add('lit');
+      setTimeout(function(){
+        dots[i].el.classList.remove('lit');
+        setTimeout(cb, 150);
+      }, 360);
+    }
+    function playSequence(upTo){
+      accepting = false;
+      progressEl.textContent = 'watch';
+      var i = 0;
+      function step(){
+        if(i >= upTo){ accepting = true; playerIdx = 0; progressEl.textContent = 'repeat it'; return; }
+        lightUp(sequence[i], function(){ i++; step(); });
+      }
+      setTimeout(step, 450);
+    }
+    playSequence(round);
+
+    function onDown(e){
+      if(done || !accepting) return;
+      var target = e.target.closest && e.target.closest('.l13-dot');
+      if(!target) return;
+      var obj = dots.find(function(d){ return d.el===target; });
+      if(!obj) return;
+      if(obj.index === sequence[playerIdx]){
+        obj.el.classList.add('lit');
+        setTimeout(function(){ obj.el.classList.remove('lit'); }, 180);
+        playerIdx++;
+        if(playerIdx >= round){
+          if(round >= ROUNDS){
+            done = true;
+            var flash = wrap.querySelector('#l23flash');
+            flash.style.opacity = '1';
+            setTimeout(completeLevel, 550);
+          } else {
+            round++;
+            setTimeout(function(){ playSequence(round); }, 450);
+          }
+        }
+      } else {
+        obj.el.classList.add('wrong');
+        setTimeout(function(){ obj.el.classList.remove('wrong'); }, 300);
+        accepting = false;
+        setTimeout(function(){ playSequence(round); }, 650);
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    cleanupFns.push(function(){ wrap.removeEventListener('pointerdown', onDown); });
+
+    currentHintFn = function(){
+      if(!accepting) return;
+      var idx = sequence[playerIdx];
+      dots[idx].el.classList.add('lit');
+      setTimeout(function(){ dots[idx].el.classList.remove('lit'); }, 480);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 24 — Precision beat  (HARD, has hint)
+     Like the timing ring, but the target window shrinks and the
+     dot speeds up after every successful hit.
+     ============================================================ */
+  function level24(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l7-base"></div>' +
+      '<div class="l7-wrap">' +
+        '<svg viewBox="0 0 220 220">' +
+          '<circle class="l7-track" cx="110" cy="110" r="90"></circle>' +
+          '<circle class="l7-target" id="l24target" cx="110" cy="20" r="7"></circle>' +
+          '<circle class="l7-dot" id="l24dot" cx="110" cy="20" r="5"></circle>' +
+        '</svg>' +
+        '<div class="l7-hits" id="l24hits">0 / 4</div>' +
+      '</div>' +
+      '<div class="l7-flash" id="l24flash"></div>';
+    root.appendChild(wrap);
+
+    var targetEl = wrap.querySelector('#l24target');
+    var dotEl = wrap.querySelector('#l24dot');
+    var hitsEl = wrap.querySelector('#l24hits');
+    var flash = wrap.querySelector('#l24flash');
+
+    var R = 90, CX = 110, CY = 110;
+    var speed = 0.0018;
+    var targetAngle = Math.random()*Math.PI*2;
+    var tolerance = 0.34;
+    var hits = 0, needed = 4, done = false;
+    var raf = null, angle = -Math.PI/2;
+
+    function setTargetPos(){
+      targetEl.setAttribute('cx', CX + R*Math.cos(targetAngle));
+      targetEl.setAttribute('cy', CY + R*Math.sin(targetAngle));
+      targetEl.setAttribute('r', Math.max(3, 7 - hits));
+    }
+    setTargetPos();
+
+    function tick(ts){
+      angle += speed * 16;
+      dotEl.setAttribute('cx', CX + R*Math.cos(angle));
+      dotEl.setAttribute('cy', CY + R*Math.sin(angle));
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    function angleDiff(a,b){ var d = Math.abs(a-b) % (Math.PI*2); return Math.min(d, Math.PI*2-d); }
+    function nextTarget(){
+      targetAngle = Math.random()*Math.PI*2;
+      speed *= 1.14;
+      tolerance *= 0.82;
+      setTargetPos();
+    }
+    function onTap(){
+      if(done) return;
+      if(angleDiff(angle, targetAngle) < tolerance){
+        hits++;
+        hitsEl.textContent = hits + ' / ' + needed;
+        if(hits >= needed){
+          done = true;
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+          return;
+        }
+        nextTarget();
+      }
+    }
+    wrap.addEventListener('pointerdown', onTap);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onTap);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    currentHintFn = function(){
+      var savedTol = tolerance;
+      tolerance = 0.5;
+      targetEl.classList.add('hint');
+      setTimeout(function(){ tolerance = savedTol; targetEl.classList.remove('hint'); }, 4000);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 25 — Extended eight-way swipe  (HARD, has hint)
+     ============================================================ */
+  function level25(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML = '<div class="l16-base"></div><div class="l16-flash" id="l25flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var R = Math.min(W,H)*0.34;
+    var DIR_NAMES = ['up','upright','right','downright','down','downleft','left','upleft'];
+    var arrowSvgs = {
+      up:'M12 4 L18 11 M12 4 L6 11 M12 4 L12 20',
+      down:'M12 20 L18 13 M12 20 L6 13 M12 20 L12 4',
+      left:'M4 12 L11 6 M4 12 L11 18 M4 12 L20 12',
+      right:'M20 12 L13 6 M20 12 L13 18 M20 12 L4 12',
+      upright:'M18 6 L18 12 M18 6 L12 6 M18 6 L6 18',
+      downright:'M18 18 L18 12 M18 18 L12 18 M18 18 L6 6',
+      downleft:'M6 18 L6 12 M6 18 L12 18 M6 18 L18 6',
+      upleft:'M6 6 L6 12 M6 6 L12 6 M6 6 L18 18'
+    };
+    var els = {};
+    DIR_NAMES.forEach(function(name, i){
+      var ang = -Math.PI/2 + i*(Math.PI*2/8);
+      var x = cx + R*Math.cos(ang), y = cy + R*Math.sin(ang);
+      var el = document.createElement('div');
+      el.className = 'l16-arrow';
+      el.style.left = (x-18)+'px'; el.style.top = (y-18)+'px';
+      el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#eaf7fb" stroke-width="2" stroke-linecap="round"><path d="'+arrowSvgs[name]+'"/></svg>';
+      wrap.appendChild(el);
+      els[name] = el;
+    });
+
+    var order = [];
+    for(var i2=0;i2<10;i2++){ order.push(DIR_NAMES[Math.floor(Math.random()*DIR_NAMES.length)]); }
+    var idx = 0;
+    els[order[0]].classList.add('active');
+
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    var startX=0,startY=0,tracking=false;
+    function onDown(e){ var p=pos(e); startX=p[0]; startY=p[1]; tracking=true; }
+    function onUp(e){
+      if(!tracking) return;
+      tracking=false;
+      var p = pos(e.changedTouches ? e.changedTouches[0] : e);
+      var dx=p[0]-startX, dy=p[1]-startY;
+      if(Math.hypot(dx,dy) < 36) return;
+      var ang = Math.atan2(dy,dx);
+      var deg = ang*180/Math.PI;
+      if(deg < 0) deg += 360;
+      var sector = Math.round(deg/45) % 8;
+      var mapping = ['right','downright','down','downleft','left','upleft','up','upright'];
+      var dir = mapping[sector];
+      var expected = order[idx];
+      if(dir === expected){
+        Object.keys(els).forEach(function(k){ els[k].classList.remove('active'); });
+        idx++;
+        if(idx >= order.length){
+          var flash = wrap.querySelector('#l25flash');
+          flash.style.opacity = '1';
+          setTimeout(completeLevel, 550);
+        } else {
+          els[order[idx]].classList.add('active');
+        }
+      }
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointerup', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointerup', onUp);
+    });
+
+    currentHintFn = function(){
+      var el = els[order[idx]];
+      el.style.transform = 'scale(1.5)';
+      el.style.opacity = '1';
+      setTimeout(function(){ el.style.transform = ''; }, 1400);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 26 — Resist the bait  (HARD, has hint)
+     Hold to fill the ring. Red decoys keep flashing nearby — if
+     your held finger drifts onto one, you lose progress.
+     ============================================================ */
+  function level26(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l5-base"></div>' +
+      '<div class="l5-fill" id="l26fill"></div>' +
+      '<div class="l5-ring-wrap" style="position:relative;z-index:1;">' +
+        '<svg viewBox="0 0 150 150">' +
+          '<circle class="l5-ring-bg" cx="75" cy="75" r="68"></circle>' +
+          '<circle class="l5-ring-fg" id="l26ring" cx="75" cy="75" r="68" stroke-dasharray="427" stroke-dashoffset="427"></circle>' +
+        '</svg>' +
+      '</div>' +
+      '<div class="l26-fail" id="l26fail"></div>';
+    root.appendChild(wrap);
+
+    var fill = wrap.querySelector('#l26fill');
+    var ring = wrap.querySelector('#l26ring');
+    var fail = wrap.querySelector('#l26fail');
+    var CIRC = 427, THRESHOLD = 3400;
+    var W = window.innerWidth, H = window.innerHeight;
+    var heldMs = 0, holding = false, lastTick = null, done = false, raf = null;
+    var px = null, py = null;
+    var decoyTimer = null;
+    var activeDecoy = null;
+    var ignoreUntil = 0;
+
+    function spawnDecoy(){
+      if(done) return;
+      if(activeDecoy) return;
+      var margin = 70;
+      var x = margin + Math.random()*(W-margin*2);
+      var y = margin + 100 + Math.random()*(H-margin*2-140);
+      var el = document.createElement('div');
+      el.className = 'l26-decoy';
+      el.style.left = (x-22)+'px'; el.style.top = (y-22)+'px';
+      wrap.appendChild(el);
+      requestAnimationFrame(function(){ el.classList.add('show'); });
+      activeDecoy = {x:x,y:y,el:el};
+      setTimeout(function(){
+        if(activeDecoy && activeDecoy.el === el){
+          el.classList.remove('show');
+          setTimeout(function(){ el.remove(); }, 200);
+          activeDecoy = null;
+        }
+      }, 1500);
+    }
+    decoyTimer = setInterval(spawnDecoy, 1800);
+
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    function onDown(e){ if(done) return; holding = true; var p = pos(e); px=p[0]; py=p[1]; }
+    function onMove(e){
+      if(!holding || done) return;
+      var p = pos(e); px=p[0]; py=p[1];
+      if(activeDecoy && Date.now() > ignoreUntil){
+        var d = Math.hypot(px-activeDecoy.x, py-activeDecoy.y);
+        if(d < 40){
+          heldMs = Math.max(0, heldMs - 900);
+          fail.style.opacity = '.85';
+          setTimeout(function(){ fail.style.opacity='0'; }, 220);
+          ignoreUntil = Date.now() + 700;
+        }
+      }
+    }
+    function onUp(){ holding = false; }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+      clearInterval(decoyTimer);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    function tick(ts){
+      if(!lastTick) lastTick = ts;
+      var dt = ts-lastTick; lastTick = ts;
+      if(holding && !done){
+        heldMs = Math.min(THRESHOLD, heldMs+dt);
+      }
+      var p = heldMs/THRESHOLD;
+      ring.setAttribute('stroke-dashoffset', CIRC*(1-p));
+      fill.style.clipPath = 'circle(' + (p*140) + '% at 50% 50%)';
+      if(p >= 1 && !done){
+        done = true;
+        setTimeout(completeLevel, 500);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    currentHintFn = function(){
+      ignoreUntil = Date.now() + 4000;
+      heldMs = Math.min(THRESHOLD, heldMs + THRESHOLD*0.25);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 27 — Triple rings  (HARD, has hint)
+     Three dots orbit at different speeds; tap only when all
+     three are inside their target zones at once.
+     ============================================================ */
+  function level27(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l11-base"></div>' +
+      '<div class="l11-wrap" style="width:260px;height:260px;">' +
+        '<svg viewBox="0 0 260 260" style="width:260px;height:260px;">' +
+          '<circle class="l27-track" cx="130" cy="130" r="115"></circle>' +
+          '<circle class="l27-track" cx="130" cy="130" r="78"></circle>' +
+          '<circle class="l27-track" cx="130" cy="130" r="42"></circle>' +
+          '<circle class="l27-target" id="l27targetA" cx="130" cy="15" r="7"></circle>' +
+          '<circle class="l27-target" id="l27targetB" cx="130" cy="52" r="6"></circle>' +
+          '<circle class="l27-target" id="l27targetC" cx="130" cy="88" r="5"></circle>' +
+          '<circle class="l27-dot" id="l27dotA" cx="130" cy="15" r="5"></circle>' +
+          '<circle class="l27-dot" id="l27dotB" cx="130" cy="52" r="4"></circle>' +
+          '<circle class="l27-dot" id="l27dotC" cx="130" cy="88" r="4"></circle>' +
+        '</svg>' +
+        '<div class="l27-hits" id="l27hits">0 / 3</div>' +
+      '</div>' +
+      '<div class="l27-flash" id="l27flash"></div>';
+    root.appendChild(wrap);
+
+    var tA=wrap.querySelector('#l27targetA'), tB=wrap.querySelector('#l27targetB'), tC=wrap.querySelector('#l27targetC');
+    var dA=wrap.querySelector('#l27dotA'), dB=wrap.querySelector('#l27dotB'), dC=wrap.querySelector('#l27dotC');
+    var hitsEl = wrap.querySelector('#l27hits');
+    var flash = wrap.querySelector('#l27flash');
+    var CX=130, CY=130, RA=115, RB=78, RC=42;
+    var speedA=0.0016, speedB=-0.0026, speedC=0.0037;
+    var angA=-Math.PI/2, angB=-Math.PI/2, angC=-Math.PI/2;
+    var targetA=Math.random()*Math.PI*2, targetB=Math.random()*Math.PI*2, targetC=Math.random()*Math.PI*2;
+    var tolerance = 0.24;
+    var hits=0, needed=3, done=false, raf=null;
+
+    function place(el,ang,r){ el.setAttribute('cx',CX+r*Math.cos(ang)); el.setAttribute('cy',CY+r*Math.sin(ang)); }
+    function angleDiff(a,b){ var d=Math.abs(a-b)%(Math.PI*2); return Math.min(d,Math.PI*2-d); }
+    place(tA,targetA,RA); place(tB,targetB,RB); place(tC,targetC,RC);
+
+    function tick(){
+      angA+=speedA*16; angB+=speedB*16; angC+=speedC*16;
+      place(dA,angA,RA); place(dB,angB,RB); place(dC,angC,RC);
+      var okA=angleDiff(angA,targetA)<tolerance, okB=angleDiff(angB,targetB)<tolerance, okC=angleDiff(angC,targetC)<tolerance;
+      tA.classList.toggle('armed',okA); tB.classList.toggle('armed',okB); tC.classList.toggle('armed',okC);
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    function nextTargets(){
+      targetA=Math.random()*Math.PI*2; targetB=Math.random()*Math.PI*2; targetC=Math.random()*Math.PI*2;
+      place(tA,targetA,RA); place(tB,targetB,RB); place(tC,targetC,RC);
+    }
+    function onTap(){
+      if(done) return;
+      var okA=angleDiff(angA,targetA)<tolerance, okB=angleDiff(angB,targetB)<tolerance, okC=angleDiff(angC,targetC)<tolerance;
+      if(okA && okB && okC){
+        hits++;
+        hitsEl.textContent = hits + ' / ' + needed;
+        if(hits>=needed){
+          done=true; flash.style.opacity='1';
+          setTimeout(completeLevel,550);
+          return;
+        }
+        nextTargets();
+      }
+    }
+    wrap.addEventListener('pointerdown', onTap);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onTap);
+      if(raf) cancelAnimationFrame(raf);
+    });
+
+    currentHintFn = function(){
+      tolerance = 0.55;
+      tA.classList.add('hint'); tB.classList.add('hint'); tC.classList.add('hint');
+      setTimeout(function(){
+        tolerance = 0.24;
+        tA.classList.remove('hint'); tB.classList.remove('hint'); tC.classList.remove('hint');
+      }, 4500);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 28 — Ten shards  (HARD, has hint)
+     ============================================================ */
+  function level28(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML = '<div class="l12-base"></div><div class="l12-flash" id="l28flash"></div>';
+    root.appendChild(wrap);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var cx = W/2, cy = H/2;
+    var N = 10, radius = Math.min(W,H)*0.24;
+    var slots = [];
+    for(var i=0;i<N;i++){
+      var ang = -Math.PI/2 + i*(Math.PI*2/N);
+      var ox = Math.round(Math.cos(ang)*radius), oy = Math.round(Math.sin(ang)*radius);
+      var slot = document.createElement('div');
+      slot.className = 'l4-slot';
+      slot.style.width='52px'; slot.style.height='52px';
+      slot.style.left = (cx+ox-26)+'px';
+      slot.style.top = (cy+oy-26)+'px';
+      slot.style.transform = 'rotate(' + Math.round(ang*180/Math.PI + 90) + 'deg)';
+      wrap.appendChild(slot);
+      slots.push({x:cx+ox, y:cy+oy, rot: Math.round(ang*180/Math.PI+90), el:slot});
+    }
+
+    var placedCount = 0;
+    var shards = [];
+    var spawnPositions = [];
+    var cols = 5, rows = 2;
+    var padX = 40, padY = 40;
+    for(var r=0;r<rows;r++){
+      for(var c=0;c<cols;c++){
+        var sx = padX + c*((W-padX*2-52)/(cols-1||1));
+        var sy = r===0 ? padY : H-padY-52;
+        spawnPositions.push([sx,sy]);
+      }
+    }
+    spawnPositions = spawnPositions.slice(0,N);
+    spawnPositions.forEach(function(pos,i){
+      var s = document.createElement('div');
+      s.className = 'shard';
+      s.style.width='52px'; s.style.height='52px';
+      var rot = Math.floor(Math.random()*4)*90 + 12;
+      s.style.left = pos[0]+'px'; s.style.top = pos[1]+'px';
+      s.style.transform = 'rotate('+rot+'deg)';
+      wrap.appendChild(s);
+      shards.push({el:s, targetIndex:i, placed:false});
+    });
+
+    var dragging=null, offX=0, offY=0;
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    function placeShard(obj){
+      var slot = slots[obj.targetIndex];
+      obj.el.style.left = (slot.x-26)+'px'; obj.el.style.top = (slot.y-26)+'px';
+      obj.el.style.transform = 'rotate('+slot.rot+'deg)';
+      obj.el.classList.add('placed'); obj.placed = true; placedCount++;
+      if(placedCount === shards.length){
+        setTimeout(function(){
+          var flash = wrap.querySelector('#l28flash');
+          flash.style.clipPath = 'circle(150% at 50% 50%)';
+          setTimeout(completeLevel, 700);
+        }, 250);
+      }
+    }
+    function onDown(e){
+      var target = e.target.closest && e.target.closest('.shard');
+      if(!target || target.classList.contains('placed')) return;
+      var obj = shards.find(function(s){ return s.el===target; });
+      if(!obj) return;
+      dragging = obj;
+      var p = pos(e), r = target.getBoundingClientRect();
+      offX = p[0]-r.left; offY = p[1]-r.top;
+      target.style.zIndex = 10; target.style.cursor='grabbing';
+    }
+    function onMove(e){
+      if(!dragging) return;
+      var p = pos(e);
+      dragging.el.style.left = (p[0]-offX)+'px';
+      dragging.el.style.top = (p[1]-offY)+'px';
+    }
+    function onUp(){
+      if(!dragging) return;
+      var slot = slots[dragging.targetIndex];
+      var r = dragging.el.getBoundingClientRect();
+      var ccx=r.left+r.width/2, ccy=r.top+r.height/2;
+      var d = Math.hypot(ccx-slot.x, ccy-slot.y);
+      if(d < 36){ placeShard(dragging); }
+      if(dragging) dragging.el.style.cursor='grab';
+      dragging = null;
+    }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+    });
+
+    currentHintFn = function(){
+      var next = shards.find(function(s){ return !s.placed; });
+      if(!next) return;
+      var slot = slots[next.targetIndex];
+      next.el.classList.add('hintglow'); slot.el.classList.add('hintglow');
+      setTimeout(function(){ next.el.classList.remove('hintglow'); slot.el.classList.remove('hintglow'); }, 1600);
+    };
+  }
+
+  /* ============================================================
+     LEVEL 29 — Two runes  (HARD, has hint)
+     Trace a star, then a triangle, without lifting off the line
+     for too long.
+     ============================================================ */
+  function level29(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l18-base"></div>' +
+      '<canvas class="l18-canvas" id="l29canvas"></canvas>' +
+      '<div class="l18-progress" id="l29progress">trace rune 1 / 2</div>' +
+      '<div class="l18-flash" id="l29flash"></div>';
+    root.appendChild(wrap);
+
+    var canvas = wrap.querySelector('#l29canvas');
+    var ctx = canvas.getContext('2d');
+    var progressEl = wrap.querySelector('#l29progress');
+    var flash = wrap.querySelector('#l29flash');
+    var W,H,cx,cy,R;
+    var pathPts = [];
+    var covered = null;
+    var done = false;
+    var shapeIdx = 0;
+
+    function buildShape(idx){
+      pathPts = [];
+      if(idx === 0){
+        var points = 5;
+        for(var i=0;i<=points*2;i++){
+          var ang = -Math.PI/2 + i*(Math.PI/points);
+          var r = (i%2===0) ? R : R*0.42;
+          pathPts.push([cx+r*Math.cos(ang), cy+r*Math.sin(ang)]);
+        }
+      } else {
+        for(var j=0;j<=3;j++){
+          var ang2 = -Math.PI/2 + j*(Math.PI*2/3);
+          pathPts.push([cx+R*Math.cos(ang2), cy+R*Math.sin(ang2)]);
+        }
+      }
+    }
+    function drawBase(){
+      ctx.clearRect(0,0,W,H);
+      ctx.strokeStyle = 'rgba(143,211,240,.35)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      pathPts.forEach(function(p,i){ i===0?ctx.moveTo(p[0],p[1]):ctx.lineTo(p[0],p[1]); });
+      ctx.stroke();
+    }
+    function drawSegHit(idx){
+      var a = pathPts[idx], b = pathPts[idx+1];
+      ctx.strokeStyle = 'rgba(255,255,255,.95)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+      ctx.stroke();
+    }
+    function resize(){
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      cx = W/2; cy = H/2;
+      R = Math.min(W,H)*0.28;
+      buildShape(shapeIdx);
+      covered = new Uint8Array(pathPts.length-1);
+      drawBase();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    cleanupFns.push(function(){ window.removeEventListener('resize', resize); });
+
+    function distToSeg(px,py,a,b){
+      var dx=b[0]-a[0], dy=b[1]-a[1];
+      var len2 = dx*dx+dy*dy;
+      var t = len2 ? Math.max(0,Math.min(1, ((px-a[0])*dx+(py-a[1])*dy)/len2)) : 0;
+      var ex = a[0]+t*dx, ey = a[1]+t*dy;
+      return Math.hypot(px-ex, py-ey);
+    }
+    function advanceShape(){
+      shapeIdx++;
+      if(shapeIdx >= 2){
+        done = true;
+        flash.style.opacity = '1';
+        setTimeout(completeLevel, 550);
+        return;
+      }
+      progressEl.textContent = 'trace rune ' + (shapeIdx+1) + ' / 2';
+      buildShape(shapeIdx);
+      covered = new Uint8Array(pathPts.length-1);
+      drawBase();
+    }
+    function markNear(px,py){
+      var tol = 34;
+      for(var i=0;i<pathPts.length-1;i++){
+        if(covered[i]) continue;
+        if(distToSeg(px,py,pathPts[i],pathPts[i+1]) < tol){
+          covered[i] = 1;
+          drawSegHit(i);
+        }
+      }
+      var count = 0;
+      for(var j=0;j<covered.length;j++){ if(covered[j]) count++; }
+      if(count === covered.length && !done){
+        setTimeout(advanceShape, 300);
+      }
+    }
+    function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+    var drawing = false;
+    function onDown(e){ if(done) return; drawing = true; var p = pos(e); markNear(p[0],p[1]); }
+    function onMove(e){ if(!drawing || done) return; var p = pos(e); markNear(p[0],p[1]); }
+    function onUp(){ drawing = false; }
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointerleave', onUp);
+    cleanupFns.push(function(){
+      wrap.removeEventListener('pointerdown', onDown);
+      wrap.removeEventListener('pointermove', onMove);
+      wrap.removeEventListener('pointerup', onUp);
+      wrap.removeEventListener('pointerleave', onUp);
+    });
+
+    currentHintFn = function(){
+      for(var i=0;i<covered.length;i++){
+        if(!covered[i]){
+          ctx.strokeStyle = 'rgba(143,211,240,.9)';
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.moveTo(pathPts[i][0],pathPts[i][1]);
+          ctx.lineTo(pathPts[i+1][0],pathPts[i+1][1]);
+          ctx.stroke();
+          setTimeout(function(){ if(!done){ drawBase(); for(var k=0;k<covered.length;k++){ if(covered[k]) drawSegHit(k); } } }, 900);
+          break;
+        }
+      }
+    };
+  }
+
+  /* ============================================================
+     LEVEL 30 — The deep rime (final boss)  (HARD, has hint)
+     Four back-to-back challenges: rotate, order-tap, swipe,
+     then hold steady — clear all four to finish the game.
+     ============================================================ */
+  function level30(root){
+    var wrap = document.createElement('div');
+    wrap.className = 'lvl';
+    wrap.innerHTML =
+      '<div class="l20-base"></div>' +
+      '<div class="l20-label" id="l30label">stage 1 / 4 — align it</div>' +
+      '<div id="l30stage"></div>' +
+      '<div class="l20-flash" id="l30flash"></div>';
+    root.appendChild(wrap);
+
+    var label = wrap.querySelector('#l30label');
+    var stageWrap = wrap.querySelector('#l30stage');
+    var flash = wrap.querySelector('#l30flash');
+    var localCleanup = [];
+
+    function clearStage(){
+      localCleanup.forEach(function(fn){ try{ fn(); }catch(e){} });
+      localCleanup = [];
+      stageWrap.innerHTML = '';
+    }
+    function finishAll(){
+      flash.style.opacity = '1';
+      setTimeout(completeLevel, 650);
+    }
+
+    /* phase 1: rotate dial */
+    function startPhase1(){
+      label.textContent = 'stage 1 / 4 \u2014 align it';
+      stageWrap.innerHTML =
+        '<div class="l8-wrap"><svg viewBox="0 0 220 220">' +
+          '<circle class="l8-ring" cx="110" cy="110" r="95"></circle>' +
+          '<line class="l8-tick" id="b30tick" x1="110" y1="110" x2="110" y2="20"></line>' +
+          '<line class="l8-arrow" id="b30arrow" x1="110" y1="110" x2="110" y2="35"></line>' +
+        '</svg></div>';
+      var tick = stageWrap.querySelector('#b30tick');
+      var arrow = stageWrap.querySelector('#b30arrow');
+      var CX=110, CY=110;
+      var targetAngle = Math.random()*Math.PI*2;
+      var curAngle = -Math.PI/2;
+      var tolerance = 0.22;
+      var dragging = false, done = false;
+      function setLine(el, ang, len){ el.setAttribute('x2', CX+len*Math.cos(ang)); el.setAttribute('y2', CY+len*Math.sin(ang)); }
+      function angleDiff(a,b){ var d=Math.abs(a-b)%(Math.PI*2); return Math.min(d,Math.PI*2-d); }
+      setLine(tick,targetAngle,90); setLine(arrow,curAngle,75);
+      function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+      function svgCenter(){ var r = stageWrap.querySelector('.l8-wrap').getBoundingClientRect(); return [r.left+r.width/2,r.top+r.height/2]; }
+      function onDown(e){ dragging=true; onMove(e); }
+      function onMove(e){ if(!dragging||done) return; var p=pos(e), c=svgCenter(); curAngle = Math.atan2(p[1]-c[1],p[0]-c[0]); setLine(arrow,curAngle,75); }
+      function onUp(){
+        if(!dragging) return;
+        dragging = false;
+        if(angleDiff(curAngle,targetAngle) < tolerance && !done){
+          done = true;
+          setTimeout(function(){ clearStage(); startPhase2(); }, 400);
+        }
+      }
+      wrap.addEventListener('pointerdown', onDown);
+      wrap.addEventListener('pointermove', onMove);
+      wrap.addEventListener('pointerup', onUp);
+      wrap.addEventListener('pointerleave', onUp);
+      localCleanup.push(function(){
+        wrap.removeEventListener('pointerdown', onDown);
+        wrap.removeEventListener('pointermove', onMove);
+        wrap.removeEventListener('pointerup', onUp);
+        wrap.removeEventListener('pointerleave', onUp);
+      });
+      currentHintFn = function(){ tolerance = 0.5; tick.classList.add('hint'); setTimeout(function(){ tolerance=0.22; tick.classList.remove('hint'); },4000); };
+    }
+
+    /* phase 2: order tap */
+    function startPhase2(){
+      label.textContent = 'stage 2 / 4 \u2014 tap in order';
+      var W = window.innerWidth, H = window.innerHeight;
+      var cx = W/2, cy = H/2;
+      var offsets = [ [-70,-70], [70,-70], [70,70], [-70,70] ];
+      var order = [0,1,2,3].sort(function(){ return Math.random()-0.5; });
+      var dots = [];
+      offsets.forEach(function(o,i){
+        var el = document.createElement('div');
+        el.className = 'l9-dot';
+        el.style.left = (cx+o[0]-23)+'px'; el.style.top = (cy+o[1]-23)+'px';
+        var rank = order.indexOf(i);
+        el.style.opacity = 0.85-rank*0.15;
+        el.innerHTML = '<span>'+(rank+1)+'</span>';
+        stageWrap.appendChild(el);
+        dots.push({el:el,index:i,rank:rank});
+      });
+      var nextIdx = 0;
+      function onDown(e){
+        var target = e.target.closest && e.target.closest('.l9-dot');
+        if(!target) return;
+        var obj = dots.find(function(d){ return d.el===target; });
+        if(!obj) return;
+        if(obj.rank === nextIdx){
+          obj.el.classList.add('tapped');
+          nextIdx++;
+          if(nextIdx >= dots.length){
+            setTimeout(function(){ clearStage(); startPhase3(); }, 400);
+          }
+        } else {
+          obj.el.classList.add('wrong');
+          setTimeout(function(){ obj.el.classList.remove('wrong'); }, 300);
+        }
+      }
+      wrap.addEventListener('pointerdown', onDown);
+      localCleanup.push(function(){ wrap.removeEventListener('pointerdown', onDown); });
+      currentHintFn = function(){
+        dots.forEach(function(d){ d.el.classList.add('numbered'); });
+        setTimeout(function(){ dots.forEach(function(d){ if(!d.el.classList.contains('tapped')) d.el.classList.remove('numbered'); }); }, 2400);
+      };
+    }
+
+    /* phase 3: swipe sequence */
+    function startPhase3(){
+      label.textContent = 'stage 3 / 4 \u2014 swipe it away';
+      var W = window.innerWidth, H = window.innerHeight;
+      var cx = W/2, cy = H/2;
+      var DIRS = {
+        up:{x:cx,y:cy-90,svg:'M12 4 L19 12 M12 4 L5 12 M12 4 L12 20'},
+        down:{x:cx,y:cy+90,svg:'M12 20 L19 12 M12 20 L5 12 M12 20 L12 4'},
+        left:{x:cx-90,y:cy,svg:'M4 12 L12 5 M4 12 L12 19 M4 12 L20 12'},
+        right:{x:cx+90,y:cy,svg:'M20 12 L12 5 M20 12 L12 19 M20 12 L4 12'}
+      };
+      var order = ['up','right','down','left','right'];
+      var idx = 0, els = {};
+      Object.keys(DIRS).forEach(function(k){
+        var d = DIRS[k];
+        var el = document.createElement('div');
+        el.className = 'l6-arrow';
+        el.style.position='absolute';
+        el.style.left = (d.x-20)+'px'; el.style.top = (d.y-20)+'px';
+        el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#eaf7fb" stroke-width="2" stroke-linecap="round"><path d="'+d.svg+'"/></svg>';
+        stageWrap.appendChild(el);
+        els[k] = el;
+      });
+      els[order[0]].classList.add('active');
+      function pos(e){ if(e.touches) return [e.touches[0].clientX,e.touches[0].clientY]; return [e.clientX,e.clientY]; }
+      var startX=0,startY=0,tracking=false;
+      function onDown(e){ var p=pos(e); startX=p[0]; startY=p[1]; tracking=true; }
+      function onUp(e){
+        if(!tracking) return;
+        tracking=false;
+        var p = pos(e.changedTouches ? e.changedTouches[0] : e);
+        var dx=p[0]-startX, dy=p[1]-startY;
+        if(Math.hypot(dx,dy) < 36) return;
+        var dir;
+        if(Math.abs(dx) > Math.abs(dy)) dir = dx>0?'right':'left';
+        else dir = dy>0?'down':'up';
+        var expected = order[idx];
+        if(dir === expected){
+          els[expected].classList.remove('active');
+          els[expected].classList.add('cleared');
+          idx++;
+          if(idx >= order.length){
+            setTimeout(function(){ clearStage(); startPhase4(); }, 400);
+          } else if(els[order[idx]]){
+            els[order[idx]].classList.add('active');
+          }
+        }
+      }
+      wrap.addEventListener('pointerdown', onDown);
+      wrap.addEventListener('pointerup', onUp);
+      localCleanup.push(function(){
+        wrap.removeEventListener('pointerdown', onDown);
+        wrap.removeEventListener('pointerup', onUp);
+      });
+      currentHintFn = function(){
+        var el = els[order[idx]];
+        if(el){ el.style.transform='scale(1.6)'; setTimeout(function(){ el.style.transform=''; },1200); }
+      };
+    }
+
+    /* phase 4: hold steady */
+    function startPhase4(){
+      label.textContent = 'stage 4 / 4 \u2014 hold steady';
+      stageWrap.innerHTML =
+        '<div class="l5-ring-wrap" style="position:relative;">' +
+          '<svg viewBox="0 0 150 150">' +
+            '<circle class="l5-ring-bg" cx="75" cy="75" r="68"></circle>' +
+            '<circle class="l5-ring-fg" id="b30ring" cx="75" cy="75" r="68" stroke-dasharray="427" stroke-dashoffset="427"></circle>' +
+          '</svg>' +
+        '</div>';
+      var ring = stageWrap.querySelector('#b30ring');
+      var CIRC = 427, THRESHOLD = 2600;
+      var heldMs = 0, holding = false, lastTick = null, done = false, raf = null;
+      function tick(ts){
+        if(!lastTick) lastTick = ts;
+        var dt = ts-lastTick; lastTick = ts;
+        if(holding && !done){
+          heldMs = Math.min(THRESHOLD, heldMs+dt);
+          ring.setAttribute('stroke-dashoffset', CIRC*(1-heldMs/THRESHOLD));
+          if(heldMs >= THRESHOLD){
+            done = true;
+            finishAll();
+            return;
+          }
+        }
+        raf = requestAnimationFrame(tick);
+      }
+      raf = requestAnimationFrame(tick);
+      function onDown(){ if(!done) holding = true; }
+      function onUp(){ holding = false; }
+      wrap.addEventListener('pointerdown', onDown);
+      wrap.addEventListener('pointerup', onUp);
+      wrap.addEventListener('pointerleave', onUp);
+      localCleanup.push(function(){
+        wrap.removeEventListener('pointerdown', onDown);
+        wrap.removeEventListener('pointerup', onUp);
+        wrap.removeEventListener('pointerleave', onUp);
+        if(raf) cancelAnimationFrame(raf);
+      });
+      currentHintFn = function(){ heldMs = Math.min(THRESHOLD, heldMs + THRESHOLD*0.5); };
+    }
+
+    startPhase1();
+    cleanupFns.push(function(){ clearStage(); });
+  }
+
+  var LEVELS = {
+    1:level1, 2:level2, 3:level3, 4:level4, 5:level5,
+    6:level6, 7:level7, 8:level8, 9:level9, 10:level10,
+    11:level11, 12:level12, 13:level13, 14:level14, 15:level15,
+    16:level16, 17:level17, 18:level18, 19:level19, 20:level20,
+    21:level21, 22:level22, 23:level23, 24:level24, 25:level25,
+    26:level26, 27:level27, 28:level28, 29:level29, 30:level30
+  };
+
+  /* ---------- title particles (ambient, no interaction) ---------- */
+  (function(){
+    var canvas = document.getElementById('titleParticles');
+    var ctx = canvas.getContext('2d');
+    var W,H,particles=[];
+    function resize(){
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      particles = [];
+      var n = Math.floor((W*H)/26000);
+      for(var i=0;i<n;i++){
+        particles.push({
+          x:Math.random()*W, y:Math.random()*H,
+          r:0.6+Math.random()*1.8,
+          vy:0.08+Math.random()*0.25,
+          vx:(Math.random()-0.5)*0.15,
+          a:0.15+Math.random()*0.35
+        });
+      }
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    function loop(){
+      ctx.clearRect(0,0,W,H);
+      particles.forEach(function(p){
+        p.y += p.vy; p.x += p.vx;
+        if(p.y>H){ p.y=-4; p.x = Math.random()*W; }
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(143,211,240,' + p.a + ')';
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fill();
+      });
+      requestAnimationFrame(loop);
+    }
+    loop();
+  })();
+
+  /* ---------- wiring ---------- */
+  buildHud();
+  loadProgress().then(function(n){ savedMax = n; updateTitleUI(); });
+
+  screens.title.addEventListener('pointerdown', function(e){
+    if(e.target === titleRestart) return;
+    showScreen('game');
+    hud.classList.add('show');
+    var startAt = (savedMax > 0 && savedMax < TOTAL_LEVELS) ? savedMax+1 : 1;
+    loadLevel(startAt);
+  });
+  titleRestart.addEventListener('pointerdown', function(e){
+    e.stopPropagation();
+    clearProgress();
+  });
+
+  document.getElementById('btnReplay').addEventListener('pointerdown', function(e){
+    e.stopPropagation();
+    clearProgress();
+    showScreen('title');
+    hud.classList.remove('show');
+    currentLevel = 0;
+    updateHud();
+  });
+
+})();
+</script>
+</body>
+</html>
